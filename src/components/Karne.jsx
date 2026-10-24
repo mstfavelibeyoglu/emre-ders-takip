@@ -2,7 +2,6 @@ import { Donut, ScoreRing, DYB_COLORS } from './Pie'
 import { fmt, fmtDate, isNum } from '../lib/calc'
 
 const RING_COLORS = ['#38bdf8', '#d6a77a', '#fbbf24', '#f472b6', '#4ade80']
-const RANK_LABEL = { okul: 'Okul', ilce: 'İlçe', il: 'İl', genel: 'Genel' }
 const p2 = v => (isNum(v) ? (v * 100).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—')
 const p0 = v => (isNum(v) ? Math.round(v * 100) : '—')
 const short = n => n.replace('Türk Dili ve Edebiyatı', 'Edebiyat').replace('Din Kültürü', 'Din Kül.')
@@ -17,11 +16,56 @@ function Delta({ now, before }) {
   )
 }
 
+const pctTop = v => (isNum(v) ? '%' + (v * 100).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) : null)
+
+function RankBox({ r, prev }) {
+  const diff = prev && isNum(prev.pct) && isNum(r.pct) ? prev.pct - r.pct : null
+  return (
+    <section className="karne-box rank-box">
+      <h4>Sıralama</h4>
+      <div className="rank-big">
+        <b>{r.rank}.</b>
+        {isNum(r.n) && <span>{r.n.toLocaleString('tr-TR')} kişi içinde</span>}
+      </div>
+      {isNum(r.pct) && (
+        <>
+          <div className="rank-bar"><span style={{ left: `calc(${Math.min(100, r.pct * 100)}% - 6px)` }} /></div>
+          <div className="rank-legend"><small>1.</small><small>İlk {pctTop(r.pct)}</small><small>{r.n}.</small></div>
+        </>
+      )}
+      {prev && (
+        <p className="note" style={{ textAlign: 'center' }}>
+          Önceki deneme: {prev.rank}.{isNum(prev.n) ? ` / ${prev.n}` : ''}
+          {isNum(diff) && Math.abs(diff) > 0.0005 && <span className={diff > 0 ? 'pos' : 'neg'}> · {diff > 0 ? '▲' : '▼'} {pctTop(Math.abs(diff))} {diff > 0 ? 'yükseldi' : 'düştü'}</span>}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function RankHistory({ ranks }) {
+  const best = ranks.reduce((a, b) => ((b.pct ?? 1) < (a.pct ?? 1) ? b : a))
+  return (
+    <section className="karne-box rank-box">
+      <h4>Sıralamalar</h4>
+      <table className="mini">
+        <thead><tr><th>Deneme</th><th>Sıra</th><th>Dilim</th></tr></thead>
+        <tbody>
+          {ranks.slice(-6).map(r => (
+            <tr key={r.exam.id} className={r === best ? 'best' : ''}>
+              <td style={{ textAlign: 'left' }}>{r.exam.name}</td>
+              <td><b>{r.rank}.</b>{isNum(r.n) ? ` / ${r.n}` : ''}</td>
+              <td>{pctTop(r.pct) ? 'İlk ' + pctTop(r.pct) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
 export default function Karne({ rep, studentName, actions }) {
   const overall = rep.kind === 'overall'
-  const showIl = !overall && rep.rows.some(r => isNum(r.ilRank))
-  const showGenel = !overall && rep.rows.some(r => isNum(r.genelRank))
-  const showTr = !overall && rep.rows.some(r => isNum(r.turkiyeRate))
   const tot = rep.total
 
   const rings = overall
@@ -29,10 +73,9 @@ export default function Karne({ rep, studentName, actions }) {
         ['Son Puan', rep.score],
         ['Ortalama', rep.avgScore],
         ['En Yüksek', rep.maxScore],
-        ['En Düşük', rep.minScore],
-        ...rep.compare
+        ['En Düşük', rep.minScore]
       ]
-    : [[rep.scoreIsEstimate ? 'Tahmini TYT' : 'Puan', rep.score], ...rep.compare]
+    : [[rep.scoreIsEstimate ? 'Tahmini TYT' : 'Puan', rep.score]]
 
   return (
     <article className="karne">
@@ -62,19 +105,8 @@ export default function Karne({ rep, studentName, actions }) {
           </div>
           {!overall && rep.scoreIsEstimate && <p className="note">Resmî puan girilmediği için tahmini TYT puanı gösteriliyor.</p>}
         </section>
-        {!overall && rep.ranks.length > 0 && (
-          <section className="karne-box">
-            <h4>Katılım ve Dereceler</h4>
-            <table className="mini">
-              <thead><tr><th>Alan</th><th>Katılım</th><th>Derece</th></tr></thead>
-              <tbody>
-                {rep.ranks.map(([k, r]) => (
-                  <tr key={k}><td>{RANK_LABEL[k]}</td><td>{r.n ?? '—'}</td><td><b>{r.rank ?? '—'}</b></td></tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
+        {!overall && rep.rank && <RankBox r={rep.rank} prev={rep.prevRank} />}
+        {overall && rep.ranks.length > 0 && <RankHistory ranks={rep.ranks} />}
         {tot && (
           <section className="karne-box">
             <h4>{overall ? 'Ortalama Dağılım' : 'Soru Dağılımı'}</h4>
@@ -104,10 +136,7 @@ export default function Karne({ rep, studentName, actions }) {
               <th>Yanlış</th>
               <th>Boş</th>
               <th>Net</th>
-              {showIl && <th>İl Sırası</th>}
-              {showGenel && <th>Genel Sırası</th>}
               <th>Başarı Yüzdeniz</th>
-              {showTr && <th>Türkiye Başarı %</th>}
               {overall ? <><th>İlk → Son Net</th><th>Hedef</th></> : <th>Önceki Sınav</th>}
             </tr>
           </thead>
@@ -120,10 +149,7 @@ export default function Karne({ rep, studentName, actions }) {
                 <td>{fmt(r.y, 2)}</td>
                 <td>{fmt(r.b, 2)}</td>
                 <td><b>{fmt(r.net, 2)}</b></td>
-                {showIl && <td>{r.ilRank ?? '—'}</td>}
-                {showGenel && <td>{r.genelRank ?? '—'}</td>}
-                <td className={isNum(r.turkiyeRate) && r.rate * 100 < r.turkiyeRate ? 'low' : ''}>{p2(r.rate)}</td>
-                {showTr && <td>{isNum(r.turkiyeRate) ? fmt(r.turkiyeRate, 2) : '—'}</td>}
+                <td>{p2(r.rate)}</td>
                 {overall ? (
                   <>
                     <td><Delta now={r.lastNet} before={r.firstNet} /></td>
@@ -142,10 +168,7 @@ export default function Karne({ rep, studentName, actions }) {
                 <td>{fmt(tot.y, 2)}</td>
                 <td>{fmt(tot.b, 2)}</td>
                 <td>{fmt(tot.net, 2)}</td>
-                {showIl && <td>{tot.ilRank ?? '—'}</td>}
-                {showGenel && <td>{tot.genelRank ?? '—'}</td>}
                 <td>{p2(tot.rate)}</td>
-                {showTr && <td>{isNum(tot.turkiyeRate) ? fmt(tot.turkiyeRate, 2) : '—'}</td>}
                 {overall ? <><td><Delta now={tot.lastNet} before={tot.firstNet} /></td><td /></> : <td><Delta now={tot.net} before={tot.prevNet} /></td>}
               </tr>
             )}

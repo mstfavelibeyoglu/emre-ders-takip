@@ -18,7 +18,11 @@ export default function ExamForm({ data, update, editing, done }) {
     return v
   })
   const [error, setError] = useState('')
-  const [rep, setRep] = useState(() => structuredClone(editing?.report || {}))
+  const [rep, setRep] = useState(() => {
+    const r = structuredClone(editing?.report || {})
+    if (!r.rank && r.ranks?.genel) r.rank = r.ranks.genel
+    return r
+  })
 
   const results = {}
   for (const s of settings.subjects) {
@@ -78,7 +82,7 @@ export default function ExamForm({ data, update, editing, done }) {
       </Card>
 
       <Card>
-        <details className="report-details" open={!!editing?.report?.score || undefined}>
+        <details className="report-details" open={!!(editing?.report?.score || editing?.report?.rank) || undefined}>
           <summary><h2>Karne bilgileri <small className="muted">(isteğe bağlı)</small></h2></summary>
           <ReportFields settings={settings} rep={rep} setRep={setRep} activeSubjects={settings.subjects.filter(s => results[s.id])} />
         </details>

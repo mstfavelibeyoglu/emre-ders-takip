@@ -361,3 +361,13 @@ textarea { resize: vertical; }
 .verdict.good { background: color-mix(in srgb, var(--green) 14%, transparent); }
 .verdict.bad { background: color-mix(in srgb, var(--red) 12%, transparent); }
 .verdict .btn { align-self: flex-end; }
+
+/* sıralama */
+.rank-box { flex: 1 1 220px; }
+.rank-big { display: flex; flex-direction: column; align-items: center; margin: 6px 0 12px; }
+.rank-big b { font-size: 2.6rem; line-height: 1; color: var(--accent); }
+.rank-big span { color: var(--muted); font-size: 0.9rem; }
+.rank-bar { position: relative; height: 10px; border-radius: 99px; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); margin: 0 6px; }
+.rank-bar span { position: absolute; top: -4px; width: 12px; height: 18px; border-radius: 4px; background: var(--text); border: 2px solid var(--card); }
+.rank-legend { display: flex; justify-content: space-between; color: var(--muted); margin-top: 4px; }
+.mini tr.best td { background: color-mix(in srgb, var(--green) 14%, transparent); }

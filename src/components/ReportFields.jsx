@@ -10,12 +10,7 @@ export function cleanReport(rep) {
     school: rep.school?.trim() || undefined,
     className: rep.className?.trim() || undefined,
     score: num(rep.score),
-    avgs: Object.fromEntries(Object.entries(rep.avgs || {}).map(([k, v]) => [k, num(v)])),
-    ranks: Object.fromEntries(Object.entries(rep.ranks || {}).map(([k, v]) => [k, { n: num(v?.n), rank: num(v?.rank) }])),
-    subjects: Object.fromEntries(
-      Object.entries(rep.subjects || {}).map(([k, v]) => [k, { ilRank: num(v?.ilRank), genelRank: num(v?.genelRank), turkiyeRate: num(v?.turkiyeRate) }])
-    ),
-    total: { ilRank: num(rep.total?.ilRank), genelRank: num(rep.total?.genelRank), turkiyeRate: num(rep.total?.turkiyeRate) },
+    rank: { n: num(rep.rank?.n), rank: num(rep.rank?.rank) },
     topics: (rep.topics || [])
       .filter(t => t.topic?.trim())
       .map(t => ({ subjectId: t.subjectId, topic: t.topic.trim(), q: num(t.q), rate: num(t.rate), general: num(t.general) }))
@@ -51,45 +46,10 @@ export default function ReportFields({ settings, rep, setRep, activeSubjects }) 
         <label>Resmî puan<input inputMode="decimal" value={s(rep.score)} onChange={e => set(['score'], e.target.value)} placeholder="ör. 293,97" /></label>
       </div>
 
-      <div className="label">Ortalamalar (puan)</div>
-      <div className="mini-grid four">
-        {[['okul', 'Okul'], ['ilce', 'İlçe'], ['il', 'İl'], ['turkiye', 'Türkiye']].map(([k, l]) => (
-          <label key={k}>{l}{numIn(['avgs', k])}</label>
-        ))}
-      </div>
-
-      <div className="label">Katılım ve dereceler</div>
-      <div className="mini-grid four">
-        {[['okul', 'Okul'], ['ilce', 'İlçe'], ['il', 'İl'], ['genel', 'Genel']].map(([k, l]) => (
-          <div key={k} className="pair">
-            <span>{l}</span>
-            {numIn(['ranks', k, 'n'], 'katılım')}
-            {numIn(['ranks', k, 'rank'], 'derece')}
-          </div>
-        ))}
-      </div>
-
-      <div className="label">Ders sıraları ve Türkiye başarı yüzdesi</div>
-      <div className="table-wrap">
-        <table className="edit-table">
-          <thead><tr><th>Ders</th><th>İl sırası</th><th>Genel sırası</th><th>Türkiye başarı %</th></tr></thead>
-          <tbody>
-            {activeSubjects.map(sub => (
-              <tr key={sub.id}>
-                <td>{sub.name}</td>
-                <td>{numIn(['subjects', sub.id, 'ilRank'])}</td>
-                <td>{numIn(['subjects', sub.id, 'genelRank'])}</td>
-                <td>{numIn(['subjects', sub.id, 'turkiyeRate'])}</td>
-              </tr>
-            ))}
-            <tr>
-              <td><b>Toplam</b></td>
-              <td>{numIn(['total', 'ilRank'])}</td>
-              <td>{numIn(['total', 'genelRank'])}</td>
-              <td>{numIn(['total', 'turkiyeRate'])}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div className="label">Sıralama</div>
+      <div className="form-row">
+        <label>Kaç kişi katıldı?{numIn(['rank', 'n'], 'ör. 1603')}</label>
+        <label>Kaçıncı oldu?{numIn(['rank', 'rank'], 'ör. 187')}</label>
       </div>
 
       <div className="label">Konu analizi (karnedeki SS / Başarı % / Genel %)</div>

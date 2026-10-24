@@ -2,6 +2,12 @@
 import { analyze, examSummary, sortExams, isNum } from './calc'
 
 const norm = s => (s || '').trim().toLocaleLowerCase('tr')
+// Tek sıralama: kaç kişi katıldı, kaçıncı olundu. Eski kayıtlarda "genel" derecesi kullanılır.
+export function rankOf(exam) {
+  const r = exam.report?.rank || exam.report?.ranks?.genel
+  if (!r || !isNum(r.rank)) return null
+  return { n: isNum(r.n) ? r.n : null, rank: r.rank, pct: isNum(r.n) && r.n > 0 ? r.rank / r.n : null }
+}
 const avg = xs => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
 
 // Konu analizi: karneden girilen konu satırları (SS, başarı, genel) + hata defterindeki kayıtlar.
@@ -54,9 +60,8 @@ export function examReport(data, exam) {
     .map(s => {
       const r = sum.per[s.id]
       if (!r) return null
-      const extra = rep.subjects?.[s.id] || {}
       const p = prevSum?.per[s.id]
-      return { subject: s, q: r.q, d: r.d, y: r.y, b: r.blank, net: r.net, rate: r.rate, ilRank: extra.ilRank, genelRank: extra.genelRank, turkiyeRate: extra.turkiyeRate, prevNet: p ? p.net : null }
+      return { subject: s, q: r.q, d: r.d, y: r.y, b: r.blank, net: r.net, rate: r.rate, prevNet: p ? p.net : null }
     })
     .filter(Boolean)
 
@@ -69,15 +74,10 @@ export function examReport(data, exam) {
     className: rep.className,
     score: isNum(rep.score) ? rep.score : sum.tyt?.score,
     scoreIsEstimate: !isNum(rep.score),
-    compare: [
-      ['Okul Ortalaması', rep.avgs?.okul],
-      ['İlçe Ortalaması', rep.avgs?.ilce],
-      ['İl Ortalaması', rep.avgs?.il],
-      ['Türkiye Ortalaması', rep.avgs?.turkiye]
-    ].filter(([, v]) => isNum(v)),
-    ranks: ['okul', 'ilce', 'il', 'genel'].map(k => [k, rep.ranks?.[k]]).filter(([, r]) => r && (isNum(r.n) || isNum(r.rank))),
+    rank: rankOf(exam),
+    prevRank: prev ? rankOf(prev) : null,
     rows,
-    total: sum.empty ? null : { q: sum.q, d: sum.d, y: sum.y, b: sum.blank, net: sum.net, rate: sum.rate, ilRank: rep.total?.ilRank, genelRank: rep.total?.genelRank, turkiyeRate: rep.total?.turkiyeRate, prevNet: prevSum && !prevSum.empty ? prevSum.net : null },
+    total: sum.empty ? null : { q: sum.q, d: sum.d, y: sum.y, b: sum.blank, net: sum.net, rate: sum.rate, prevNet: prevSum && !prevSum.empty ? prevSum.net : null },
     topics: topicRows(settings, rep.topics || [], mistakes),
     mistakes
   }
@@ -88,7 +88,7 @@ export function overallReport(data) {
   const a = analyze(data)
   const exams = a.exams
   const scores = exams.map(e => (isNum(e.report?.score) ? e.report.score : e.sum.tyt.score)).filter(isNum)
-  const avgOf = k => avg(exams.map(e => e.report?.avgs?.[k]).filter(isNum))
+  const ranks = exams.map(e => ({ exam: e, ...rankOf(e) })).filter(r => isNum(r.rank))
 
   const rows = a.subjects
     .filter(s => s.count)
@@ -108,10 +108,7 @@ export function overallReport(data) {
     avgScore: avg(scores),
     maxScore: scores.length ? Math.max(...scores) : null,
     minScore: scores.length ? Math.min(...scores) : null,
-    compare: [
-      ['Okul Ort. (ortalama)', avgOf('okul')],
-      ['Türkiye Ort. (ortalama)', avgOf('turkiye')]
-    ].filter(([, v]) => isNum(v)),
+    ranks,
     rows,
     total: n ? { q: tot('q'), d: tot('d'), y: tot('y'), b: tot('blank'), net: tot('net'), rate: a.overallRate, firstNet: exams[0].sum.net, lastNet: exams[n - 1].sum.net } : null,
     topics: topicRows(settings, exams.flatMap(e => e.report?.topics || []), data.mistakes),
