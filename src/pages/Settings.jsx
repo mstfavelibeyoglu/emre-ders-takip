@@ -82,7 +82,7 @@ export default function Settings({ data, update, replace, user, role }) {
           <button className="btn primary" disabled={!!zipping} onClick={async () => { setZipping('0'); try { await exportZip(data, (i, n) => setZipping(`${i}/${n}`)); localStorage.setItem('emre-last-backup', new Date().toISOString()) } finally { setZipping('') } }}>
             {zipping ? `Hazırlanıyor… ${zipping}` : '💾 Tam yedek indir (ZIP)'}
           </button>
-          <button className="btn" onClick={() => jsonRef.current.click()}>♻️ Yedekten geri yükle</button>
+          {(role === 'owner' || role === 'local') && <button className="btn" onClick={() => jsonRef.current.click()}>♻️ Yedekten geri yükle</button>}
         </div>
         <input ref={xlsRef} type="file" accept=".xlsx,.xls" hidden onChange={onExcel} />
         <input ref={jsonRef} type="file" accept=".zip,.json,application/zip,application/json" hidden onChange={onJSON} />
