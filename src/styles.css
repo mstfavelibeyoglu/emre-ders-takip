@@ -305,3 +305,59 @@ textarea { resize: vertical; }
   .karne { box-shadow: none; border: 0; }
   .karne-band { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* soru görselleri */
+.modal.wide { max-width: 900px; }
+.thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.thumbs:empty { display: none; }
+.thumb { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+.thumb .qimg { display: block; max-height: 140px; max-width: 100%; }
+.thumb-x { position: absolute; top: 4px; right: 4px; border: 0; border-radius: 50%; width: 24px; height: 24px; background: rgb(15 23 42 / 0.7); color: #fff; cursor: pointer; }
+.qimg-empty { width: 120px; height: 80px; background: var(--line); }
+.m-thumb { width: 72px; height: 54px; object-fit: cover; object-position: top left; border-radius: 6px; border: 1px solid var(--line); background: #fff; cursor: pointer; flex-shrink: 0; }
+.choices { display: flex; gap: 6px; }
+.choice { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); font-weight: 700; cursor: pointer; }
+.choice.on.ok { background: var(--green); border-color: var(--green); color: #fff; }
+.choice.on.bad { background: var(--red); border-color: var(--red); color: #fff; }
+.choices.big { justify-content: center; gap: 12px; margin: 16px 0 6px; }
+.choices.big .choice { width: 54px; height: 54px; font-size: 1.2rem; }
+.choice:disabled { cursor: default; }
+
+/* kırpma ve işaretleme */
+.crop-area { max-height: 65vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.crop-wrap, .mark-wrap.drawing { touch-action: none; cursor: crosshair; }
+.crop-wrap, .mark-wrap { position: relative; user-select: none; }
+.crop-wrap canvas, .mark-wrap canvas { display: block; width: 100%; height: auto; }
+.crop-rect { position: absolute; border: 2px solid var(--accent); background: rgb(79 70 229 / 0.12); box-shadow: 0 0 0 9999px rgb(15 23 42 / 0.25); pointer-events: none; }
+.mark-card { padding: 12px; }
+.mark-nav { margin-bottom: 8px; }
+.mark-nav select { flex: 1; min-width: 160px; width: auto; }
+.mark-wrap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; margin-top: 8px; }
+.mark-wrap.drawing .qbox { pointer-events: none; opacity: 0.4; }
+.qbox { position: absolute; border: 2px dashed rgb(79 70 229 / 0.45); background: rgb(79 70 229 / 0.03); border-radius: 6px; cursor: pointer; padding: 0; }
+.qbox span { position: absolute; top: 2px; left: 2px; background: var(--accent); color: #fff; font-weight: 700; font-size: 0.8rem; border-radius: 6px; padding: 1px 7px; }
+.qbox:hover { background: rgb(239 68 68 / 0.1); border-color: var(--red); border-style: solid; }
+.qbox:hover span { background: var(--red); }
+.qbox.done { border: 3px solid var(--red); background: rgb(239 68 68 / 0.12); cursor: default; }
+.qbox.done span { background: var(--red); }
+.mark-actions { position: sticky; bottom: 80px; margin-top: 10px; }
+
+/* tekrar */
+.today-main { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.today-count { font-size: 3rem; font-weight: 800; line-height: 1; color: var(--accent); }
+.big-btn { padding: 14px 22px; font-size: 1.05rem; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 18px; }
+.week-day { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.8rem; }
+.week-bar { height: 54px; width: 100%; max-width: 34px; background: var(--bg); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
+.week-bar span { display: block; width: 100%; background: var(--accent); border-radius: 6px 6px 0 0; }
+.session { max-width: 860px; margin: 0 auto; width: 100%; }
+.session-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.progress { flex: 1; height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.progress span { display: block; height: 100%; background: var(--accent); }
+.session-imgs { display: flex; flex-direction: column; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.session-img { width: 100%; height: auto; display: block; }
+.session-text { padding: 30px; text-align: center; background: var(--bg); border-radius: 10px; font-size: 1.2rem; }
+.verdict { margin-top: 14px; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.verdict.good { background: color-mix(in srgb, var(--green) 14%, transparent); }
+.verdict.bad { background: color-mix(in srgb, var(--red) 12%, transparent); }
+.verdict .btn { align-self: flex-end; }

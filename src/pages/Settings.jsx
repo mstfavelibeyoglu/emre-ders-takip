@@ -2,11 +2,13 @@ import { useRef, useState } from 'react'
 import { Card } from '../components/ui'
 import { TYT_TESTS, emptyData } from '../lib/defaults'
 const excel = () => import('../lib/excel')
-import { normalize } from '../lib/store'
+import { exportZip, readBackup, restoreFiles } from '../lib/backup'
+import { clearImages } from '../lib/images'
 
 export default function Settings({ data, update, replace }) {
   const { settings } = data
   const [msg, setMsg] = useState(null)
+  const [zipping, setZipping] = useState('')
   const xlsRef = useRef(null)
   const jsonRef = useRef(null)
 
@@ -42,8 +44,10 @@ export default function Settings({ data, update, replace }) {
     e.target.value = ''
     if (!file) return
     try {
-      const parsed = normalize(JSON.parse(await file.text()))
-      if (!confirm(`Yedek dosyasında ${parsed.exams.length} deneme ve ${parsed.mistakes.length} hata kaydı var. Mevcut verilerin TAMAMI bununla değiştirilsin mi?`)) return
+      const { data: parsed, files } = await readBackup(file)
+      const nFiles = Object.keys(files).length
+      if (!confirm(`Yedekte ${parsed.exams.length} deneme, ${parsed.mistakes.length} hata kaydı${nFiles ? ` ve ${nFiles} dosya` : ''} var. Mevcut verilerin TAMAMI bununla değiştirilsin mi?`)) return
+      if (nFiles) await restoreFiles(files)
       replace(parsed)
       setMsg({ ok: true, text: 'Yedek geri yüklendi.' })
     } catch {
@@ -54,6 +58,7 @@ export default function Settings({ data, update, replace }) {
   const reset = () => {
     if (!confirm('Tüm denemeler, hata kayıtları ve ayarlar silinecek. Önce yedek almanı öneririm. Devam edilsin mi?')) return
     if (!confirm('Emin misin? Bu işlem geri alınamaz.')) return
+    clearImages()
     replace(emptyData())
     setMsg({ ok: true, text: 'Tüm veriler sıfırlandı.' })
   }
@@ -62,18 +67,20 @@ export default function Settings({ data, update, replace }) {
     <div className="stack">
       <Card title="Veri ve yedekleme">
         <p className="note">
-          Veriler bu tarayıcıda saklanır. Bilgisayar değiştirirken ya da tarayıcı verilerini temizlemeden önce <b>JSON yedeği</b> indir. Excel çıktısı
-          incelemek ve paylaşmak içindir.
+          Veriler, soru görselleri ve deneme dosyaları <b>sadece bu cihazdaki tarayıcıda</b> saklanır. Haftada bir <b>tam yedek (ZIP)</b> indir;
+          cihaz değiştirirken ya da tarayıcı verisini silmeden önce mutlaka indir. Excel çıktısı yalnızca sayıları içerir.
         </p>
         {msg && <div className={msg.ok ? 'ok' : 'error'}>{msg.text}</div>}
         <div className="btn-grid">
           <button className="btn" onClick={() => xlsRef.current.click()}>📥 Excel şablonundan içe aktar</button>
           <button className="btn" onClick={async () => (await excel()).exportExcel(data)}>📤 Excel'e aktar</button>
-          <button className="btn" onClick={async () => (await excel()).downloadJSON(data)}>💾 Yedek indir (JSON)</button>
+          <button className="btn primary" disabled={!!zipping} onClick={async () => { setZipping('0'); try { await exportZip(data, (i, n) => setZipping(`${i}/${n}`)); localStorage.setItem('emre-last-backup', new Date().toISOString()) } finally { setZipping('') } }}>
+            {zipping ? `Hazırlanıyor… ${zipping}` : '💾 Tam yedek indir (ZIP)'}
+          </button>
           <button className="btn" onClick={() => jsonRef.current.click()}>♻️ Yedekten geri yükle</button>
         </div>
         <input ref={xlsRef} type="file" accept=".xlsx,.xls" hidden onChange={onExcel} />
-        <input ref={jsonRef} type="file" accept=".json,application/json" hidden onChange={onJSON} />
+        <input ref={jsonRef} type="file" accept=".zip,.json,application/zip,application/json" hidden onChange={onJSON} />
       </Card>
 
       <Card title="Genel">

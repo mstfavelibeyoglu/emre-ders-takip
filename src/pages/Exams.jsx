@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
 import { examSummary, sortExams, fmt, pct, fmtDate, isNum } from '../lib/calc'
 import { Card, Empty } from '../components/ui'
+import { deleteImages } from '../lib/images'
 
 export default function Exams({ data, update, onEdit, onOpen, onMistakes, go }) {
   const { settings } = data
   const exams = useMemo(() => sortExams(data.exams).reverse().map(e => ({ ...e, sum: examSummary(e, settings) })), [data])
 
   const remove = e => {
-    if (!confirm(`"${e.name}" silinsin mi? (Bu denemeye bağlı hata kayıtları kalır.)`)) return
+    if (!confirm(`"${e.name}" silinsin mi? (Yüklenen kitapçık silinir; kaydettiğin yanlış sorular kalır.)`)) return
+    if (e.files?.length) deleteImages(e.files.map(f => f.key))
     update(d => { d.exams = d.exams.filter(x => x.id !== e.id); return d })
   }
 
@@ -52,7 +54,7 @@ export default function Exams({ data, update, onEdit, onOpen, onMistakes, go }) 
             </div>
             <div className="row gap wrap">
               <button className="btn small primary" onClick={() => onOpen(e.id)}>📄 Karne</button>
-              <button className="btn small" onClick={() => onMistakes(e)}>Yanlışları gir {mCount ? `(${mCount})` : ''}</button>
+              <button className="btn small" onClick={() => onMistakes(e)}>✏️ Yanlışları seç {mCount ? `(${mCount})` : ''}</button>
               <button className="btn small ghost" onClick={() => onEdit(e)}>Düzenle</button>
               <button className="btn small ghost danger" onClick={() => remove(e)}>Sil</button>
             </div>

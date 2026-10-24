@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './lib/store'
-import { topicStats } from './lib/calc'
 import Dashboard from './pages/Dashboard'
 import ExamForm from './pages/ExamForm'
 import Exams from './pages/Exams'
@@ -8,6 +7,8 @@ import Mistakes, { MistakeForm } from './pages/Mistakes'
 import Review from './pages/Review'
 import Settings from './pages/Settings'
 import KarnePage from './pages/KarnePage'
+import MarkPage from './pages/MarkPage'
+import { dueList } from './lib/srs'
 
 const TABS = [
   { id: 'dashboard', label: 'Analiz', icon: '📊' },
@@ -20,7 +21,7 @@ const TABS = [
 
 const readHash = () => {
   const [h] = location.hash.replace(/^#\/?/, '').split('/')
-  return h === 'karne' || TABS.some(t => t.id === h) ? h : 'dashboard'
+  return h === 'karne' || h === 'mark' || TABS.some(t => t.id === h) ? h : 'dashboard'
 }
 const readId = () => location.hash.replace(/^#\/?/, '').split('/')[1] || ''
 
@@ -58,17 +59,24 @@ export default function App() {
     setKarneId(id)
     window.scrollTo({ top: 0 })
   }
+  const markExam = id => {
+    setEditingExam(null)
+    location.hash = '#/mark/' + id
+    setTab('mark')
+    setKarneId(id)
+    window.scrollTo({ top: 0 })
+  }
   const editExam = e => { setEditingExam(e); location.hash = '#/add'; setTab('add') }
 
-  const openCount = topicStats(data).reduce((a, t) => a + (t.open > 0 ? 1 : 0), 0)
-  const current = TABS.find(t => t.id === tab) || { label: 'Deneme Karnesi' }
+  const openCount = dueList(data.mistakes).length
+  const current = TABS.find(t => t.id === tab) || { label: tab === 'mark' ? 'Yanlışları seç' : 'Deneme Karnesi' }
 
   const examDone = exam => {
     const wasEdit = !!editingExam
     if (!exam) return wasEdit ? openExam(editingExam.id) : go('dashboard')
-    openExam(exam.id)
-    setToast(wasEdit ? 'Deneme güncellendi' : 'Deneme kaydedildi 🎯')
-    if (!wasEdit) setMistakeForm({ exam })
+    if (wasEdit) openExam(exam.id)
+    else markExam(exam.id)
+    setToast(wasEdit ? 'Deneme güncellendi' : 'Deneme kaydedildi 🎯 Şimdi yanlışlarını seç')
   }
 
   return (
@@ -83,7 +91,7 @@ export default function App() {
         </div>
         <nav>
           {TABS.map(t => (
-            <button key={t.id} className={'nav-item ' + (tab === t.id || (tab === 'karne' && t.id === 'exams') ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)}>
+            <button key={t.id} className={'nav-item ' + (tab === t.id || ((tab === 'karne' || tab === 'mark') && t.id === 'exams') ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)}>
               <span className="nav-icon">{t.icon}</span>
               <span>{t.id === 'add' ? 'Deneme ekle' : t.label}</span>
               {t.id === 'review' && openCount > 0 && <span className="count">{openCount}</span>}
@@ -107,18 +115,19 @@ export default function App() {
             go={go}
             onEdit={editExam}
             onOpen={openExam}
-            onMistakes={e => setMistakeForm({ exam: e })}
+            onMistakes={e => markExam(e.id)}
           />
         )}
-        {tab === 'karne' && <KarnePage data={data} examId={karneId} go={go} openExam={openExam} onEdit={editExam} onMistakes={e => setMistakeForm({ exam: e })} />}
+        {tab === 'mark' && <MarkPage data={data} update={update} examId={karneId} openExam={openExam} />}
+        {tab === 'karne' && <KarnePage data={data} examId={karneId} go={go} openExam={openExam} onEdit={editExam} onMistakes={e => markExam(e.id)} />}
         {tab === 'mistakes' && <Mistakes data={data} update={update} openForm={setMistakeForm} />}
-        {tab === 'review' && <Review data={data} update={update} />}
+        {tab === 'review' && <Review data={data} update={update} go={go} />}
         {tab === 'settings' && <Settings data={data} update={update} replace={replace} />}
       </main>
 
       <nav className="bottom-nav no-print">
         {TABS.map(t => (
-          <button key={t.id} className={(tab === t.id || (tab === 'karne' && t.id === 'exams') ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)} aria-label={t.label}>
+          <button key={t.id} className={(tab === t.id || ((tab === 'karne' || tab === 'mark') && t.id === 'exams') ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)} aria-label={t.label}>
             <span className="nav-icon">{t.icon}</span>
             {!t.primary && <small>{t.label.split(' ')[0]}</small>}
             {t.id === 'review' && openCount > 0 && <span className="count">{openCount}</span>}

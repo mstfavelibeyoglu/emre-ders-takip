@@ -32,7 +32,7 @@ export default function KarnePage({ data, examId, go, openExam, onEdit, onMistak
         studentName={data.settings.studentName}
         actions={
           <span className="row gap no-print">
-            <button className="band-btn" onClick={() => onMistakes(exam)}>+ Yanlış</button>
+            <button className="band-btn" onClick={() => onMistakes(exam)}>Yanlışları seç</button>
             <button className="band-btn" onClick={() => onEdit(exam)}>Düzenle</button>
             <button className="band-btn" onClick={() => window.print()}>Yazdır / PDF</button>
           </span>
