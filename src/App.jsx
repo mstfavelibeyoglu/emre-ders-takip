@@ -7,6 +7,7 @@ import Exams from './pages/Exams'
 import Mistakes, { MistakeForm } from './pages/Mistakes'
 import Review from './pages/Review'
 import Settings from './pages/Settings'
+import KarnePage from './pages/KarnePage'
 
 const TABS = [
   { id: 'dashboard', label: 'Analiz', icon: '📊' },
@@ -18,19 +19,21 @@ const TABS = [
 ]
 
 const readHash = () => {
-  const h = location.hash.replace('#/', '').replace('#', '')
-  return TABS.some(t => t.id === h) ? h : 'dashboard'
+  const [h] = location.hash.replace(/^#\/?/, '').split('/')
+  return h === 'karne' || TABS.some(t => t.id === h) ? h : 'dashboard'
 }
+const readId = () => location.hash.replace(/^#\/?/, '').split('/')[1] || ''
 
 export default function App() {
   const [data, update, replace] = useStore()
   const [tab, setTab] = useState(readHash)
+  const [karneId, setKarneId] = useState(readId)
   const [editingExam, setEditingExam] = useState(null)
   const [mistakeForm, setMistakeForm] = useState(null)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    const on = () => setTab(readHash())
+    const on = () => { setTab(readHash()); setKarneId(readId()) }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])
@@ -48,20 +51,29 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
+  const openExam = id => {
+    setEditingExam(null)
+    location.hash = '#/karne/' + id
+    setTab('karne')
+    setKarneId(id)
+    window.scrollTo({ top: 0 })
+  }
+  const editExam = e => { setEditingExam(e); location.hash = '#/add'; setTab('add') }
+
   const openCount = topicStats(data).reduce((a, t) => a + (t.open > 0 ? 1 : 0), 0)
-  const current = TABS.find(t => t.id === tab)
+  const current = TABS.find(t => t.id === tab) || { label: 'Deneme Karnesi' }
 
   const examDone = exam => {
     const wasEdit = !!editingExam
-    if (!exam) return go(wasEdit ? 'exams' : 'dashboard')
-    go(wasEdit ? 'exams' : 'dashboard')
+    if (!exam) return wasEdit ? openExam(editingExam.id) : go('dashboard')
+    openExam(exam.id)
     setToast(wasEdit ? 'Deneme güncellendi' : 'Deneme kaydedildi 🎯')
     if (!wasEdit) setMistakeForm({ exam })
   }
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      <aside className="sidebar no-print">
         <div className="brand">
           <img src="./icon.svg" alt="" width="32" height="32" />
           <div>
@@ -71,7 +83,7 @@ export default function App() {
         </div>
         <nav>
           {TABS.map(t => (
-            <button key={t.id} className={'nav-item ' + (tab === t.id ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)}>
+            <button key={t.id} className={'nav-item ' + (tab === t.id || (tab === 'karne' && t.id === 'exams') ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)}>
               <span className="nav-icon">{t.icon}</span>
               <span>{t.id === 'add' ? 'Deneme ekle' : t.label}</span>
               {t.id === 'review' && openCount > 0 && <span className="count">{openCount}</span>}
@@ -81,30 +93,32 @@ export default function App() {
       </aside>
 
       <main>
-        <header className="topbar">
+        <header className="topbar no-print">
           <h1>{tab === 'add' ? (editingExam ? 'Denemeyi düzenle' : 'Deneme ekle') : current.label}</h1>
           {tab === 'dashboard' && <button className="btn primary hide-mobile" onClick={() => go('add')}>+ Deneme ekle</button>}
         </header>
 
-        {tab === 'dashboard' && <Dashboard data={data} go={go} />}
+        {tab === 'dashboard' && <Dashboard data={data} go={go} openExam={openExam} />}
         {tab === 'add' && <ExamForm key={editingExam?.id || 'new'} data={data} update={update} editing={editingExam} done={examDone} />}
         {tab === 'exams' && (
           <Exams
             data={data}
             update={update}
             go={go}
-            onEdit={e => { setEditingExam(e); location.hash = '#/add'; setTab('add') }}
+            onEdit={editExam}
+            onOpen={openExam}
             onMistakes={e => setMistakeForm({ exam: e })}
           />
         )}
+        {tab === 'karne' && <KarnePage data={data} examId={karneId} go={go} openExam={openExam} onEdit={editExam} onMistakes={e => setMistakeForm({ exam: e })} />}
         {tab === 'mistakes' && <Mistakes data={data} update={update} openForm={setMistakeForm} />}
         {tab === 'review' && <Review data={data} update={update} />}
         {tab === 'settings' && <Settings data={data} update={update} replace={replace} />}
       </main>
 
-      <nav className="bottom-nav">
+      <nav className="bottom-nav no-print">
         {TABS.map(t => (
-          <button key={t.id} className={(tab === t.id ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)} aria-label={t.label}>
+          <button key={t.id} className={(tab === t.id || (tab === 'karne' && t.id === 'exams') ? 'on' : '') + (t.primary ? ' primary' : '')} onClick={() => go(t.id)} aria-label={t.label}>
             <span className="nav-icon">{t.icon}</span>
             {!t.primary && <small>{t.label.split(' ')[0]}</small>}
             {t.id === 'review' && openCount > 0 && <span className="count">{openCount}</span>}

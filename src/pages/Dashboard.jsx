@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react'
-import { analyze, topicStats, fmt, pct, fmtDate, isNum } from '../lib/calc'
-import { Card, Stat, Empty, Badge } from '../components/ui'
+import { topicStats, fmt, pct, isNum } from '../lib/calc'
+import { Card, Empty, Badge } from '../components/ui'
+import Karne from '../components/Karne'
+import { overallReport } from '../lib/report'
 import ChartBox from '../components/Chart'
 
 const statusTone = { 'Güçlü': 'green', 'Orta': 'yellow', 'Geliştirilmeli': 'red' }
 
-export default function Dashboard({ data, go }) {
-  const a = useMemo(() => analyze(data), [data])
+export default function Dashboard({ data, go, openExam }) {
+  const overall = useMemo(() => overallReport(data), [data])
+  const a = overall.analysis
   const topics = useMemo(() => topicStats(data).filter(t => t.open > 0).slice(0, 5), [data])
   const [focus, setFocus] = useState('all')
   const subName = id => data.settings.subjects.find(s => s.id === id)?.name
@@ -38,19 +41,16 @@ export default function Dashboard({ data, go }) {
 
   return (
     <div className="stack">
-      <div className="stats">
-        <Stat label="Deneme" value={a.exams.length} hint={`Son: ${fmtDate(a.last.date)}`} />
-        <Stat label="Son net" value={fmt(a.last.sum.net, 2)} hint={`${a.last.sum.q} sorudan`} />
-        <Stat label="Son başarı" value={pct(a.last.sum.rate)} hint={`Genel ort. ${pct(a.overallRate)}`} />
-        <Stat
-          label="İlk → son gelişim"
-          value={isNum(a.progress) ? (a.progress >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(a.progress * 100)) + ' puan' : '—'}
-          tone={isNum(a.progress) ? (a.progress >= 0 ? 'up' : 'down') : ''}
-          hint="başarı yüzdesinde"
-        />
-        <Stat label="Tahmini TYT" value={fmt(a.lastScore, 0)} hint={isNum(a.avgScore) ? `Ortalama ${fmt(a.avgScore, 0)}` : 'Tüm testler gerekli'} />
-        <Stat label="Öncelikli ders" value={a.weakest?.name || '—'} hint={a.strongest ? `En güçlü: ${a.strongest.name}` : ''} tone="warn" />
-      </div>
+      <Karne
+        rep={overall}
+        studentName={data.settings.studentName}
+        actions={
+          <span className="row gap no-print">
+            <button className="band-btn" onClick={() => openExam(a.last.id)}>Son deneme karnesi</button>
+            <button className="band-btn" onClick={() => window.print()}>Yazdır / PDF</button>
+          </span>
+        }
+      />
 
       <div className="grid-2">
         <Card
@@ -141,6 +141,35 @@ export default function Dashboard({ data, go }) {
           ) : (
             <p className="muted">Hata defterine kayıt ekledikçe burada neden dağılımı görünecek.</p>
           )}
+        </Card>
+      </div>
+
+      <div className="grid-2">
+        <Card title="Hataların derslere dağılımı">
+          {data.mistakes.length ? (
+            <ChartBox
+              type="pie"
+              height={240}
+              data={{
+                labels: data.settings.subjects.map(s => s.name),
+                datasets: [{ data: data.settings.subjects.map(s => data.mistakes.filter(m => m.subjectId === s.id).length), backgroundColor: data.settings.subjects.map(s => s.color), borderColor: 'transparent' }]
+              }}
+              options={{ plugins: { legend: { position: 'right' } } }}
+            />
+          ) : (
+            <p className="muted">Hata defterine kayıt ekledikçe görünecek.</p>
+          )}
+        </Card>
+        <Card title="Son denemede netin derslere dağılımı">
+          <ChartBox
+            type="pie"
+            height={240}
+            data={{
+              labels: withData.map(s => s.name),
+              datasets: [{ data: withData.map(s => Math.max(0, +(a.last.sum.per[s.id]?.net ?? 0).toFixed(2))), backgroundColor: withData.map(s => s.color), borderColor: 'transparent' }]
+            }}
+            options={{ plugins: { legend: { position: 'right' } } }}
+          />
         </Card>
       </div>
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { examSummary, sortExams, fmt, pct, fmtDate, isNum } from '../lib/calc'
 import { Card, Empty } from '../components/ui'
 
-export default function Exams({ data, update, onEdit, onMistakes, go }) {
+export default function Exams({ data, update, onEdit, onOpen, onMistakes, go }) {
   const { settings } = data
   const exams = useMemo(() => sortExams(data.exams).reverse().map(e => ({ ...e, sum: examSummary(e, settings) })), [data])
 
@@ -28,7 +28,7 @@ export default function Exams({ data, update, onEdit, onMistakes, go }) {
         return (
           <Card key={e.id} className="exam-card">
             <div className="exam-top">
-              <div>
+              <div className="clickable" onClick={() => onOpen(e.id)}>
                 <h3>{e.name}</h3>
                 <small className="muted">{fmtDate(e.date)}</small>
               </div>
@@ -51,6 +51,7 @@ export default function Exams({ data, update, onEdit, onMistakes, go }) {
               })}
             </div>
             <div className="row gap wrap">
+              <button className="btn small primary" onClick={() => onOpen(e.id)}>📄 Karne</button>
               <button className="btn small" onClick={() => onMistakes(e)}>Yanlışları gir {mCount ? `(${mCount})` : ''}</button>
               <button className="btn small ghost" onClick={() => onEdit(e)}>Düzenle</button>
               <button className="btn small ghost danger" onClick={() => remove(e)}>Sil</button>

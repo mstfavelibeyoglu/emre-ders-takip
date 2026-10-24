@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { examSummary, fmt, pct, today, uid, isNum } from '../lib/calc'
 import { Card } from '../components/ui'
+import ReportFields, { cleanReport } from '../components/ReportFields'
 
 const toNum = v => (v === '' || v == null ? null : Number(v))
 
@@ -17,6 +18,7 @@ export default function ExamForm({ data, update, editing, done }) {
     return v
   })
   const [error, setError] = useState('')
+  const [rep, setRep] = useState(() => structuredClone(editing?.report || {}))
 
   const results = {}
   for (const s of settings.subjects) {
@@ -32,7 +34,7 @@ export default function ExamForm({ data, update, editing, done }) {
     e.preventDefault()
     if (!Object.keys(results).length) return setError('En az bir dersin doğru/yanlış sayısını gir.')
     if (overflow.length) return setError(`${overflow.map(s => s.name).join(', ')}: doğru + yanlış soru sayısını geçiyor.`)
-    const exam = { id: editing?.id || uid(), date, name: name.trim() || `Deneme ${data.exams.length + 1}`, results, createdAt: editing?.createdAt || Date.now() }
+    const exam = { id: editing?.id || uid(), date, name: name.trim() || `Deneme ${data.exams.length + 1}`, results, report: cleanReport(rep), createdAt: editing?.createdAt || Date.now() }
     update(d => {
       const i = d.exams.findIndex(x => x.id === exam.id)
       if (i >= 0) d.exams[i] = exam
@@ -73,6 +75,13 @@ export default function ExamForm({ data, update, editing, done }) {
             )
           })}
         </div>
+      </Card>
+
+      <Card>
+        <details className="report-details" open={!!editing?.report?.score || undefined}>
+          <summary><h2>Karne bilgileri <small className="muted">(isteğe bağlı)</small></h2></summary>
+          <ReportFields settings={settings} rep={rep} setRep={setRep} activeSubjects={settings.subjects.filter(s => results[s.id])} />
+        </details>
       </Card>
 
       <div className="sticky-summary">
