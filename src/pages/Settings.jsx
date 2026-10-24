@@ -1,0 +1,154 @@
+import { useRef, useState } from 'react'
+import { Card } from '../components/ui'
+import { TYT_TESTS, emptyData } from '../lib/defaults'
+const excel = () => import('../lib/excel')
+import { normalize } from '../lib/store'
+
+export default function Settings({ data, update, replace }) {
+  const { settings } = data
+  const [msg, setMsg] = useState(null)
+  const xlsRef = useRef(null)
+  const jsonRef = useRef(null)
+
+  const setS = fn => update(d => { fn(d.settings); return d })
+  const setSub = (i, k, v) => setS(s => { s.subjects[i][k] = v })
+  const n = v => (v === '' ? 0 : Number(v))
+
+  const onExcel = async e => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const { data: imported, skipped } = await (await excel()).importTemplate(file, data)
+      const has = data.exams.length || data.mistakes.length
+      const mode = has
+        ? confirm(`${imported.exams.length} deneme ve ${imported.mistakes.length} hata kaydı bulundu.\n\nTamam: mevcut verilere EKLE\nİptal: işlemi iptal et`)
+        : true
+      if (!mode) return
+      update(d => {
+        d.settings = imported.settings
+        d.exams.push(...imported.exams)
+        d.mistakes.push(...imported.mistakes)
+        return d
+      })
+      setMsg({ ok: true, text: `İçe aktarıldı: ${imported.exams.length} deneme, ${imported.mistakes.length} hata kaydı${skipped ? ` (${skipped} örnek satır atlandı)` : ''}.` })
+    } catch (err) {
+      setMsg({ ok: false, text: err.message })
+    }
+  }
+
+  const onJSON = async e => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const parsed = normalize(JSON.parse(await file.text()))
+      if (!confirm(`Yedek dosyasında ${parsed.exams.length} deneme ve ${parsed.mistakes.length} hata kaydı var. Mevcut verilerin TAMAMI bununla değiştirilsin mi?`)) return
+      replace(parsed)
+      setMsg({ ok: true, text: 'Yedek geri yüklendi.' })
+    } catch {
+      setMsg({ ok: false, text: 'Bu dosya geçerli bir yedek değil.' })
+    }
+  }
+
+  const reset = () => {
+    if (!confirm('Tüm denemeler, hata kayıtları ve ayarlar silinecek. Önce yedek almanı öneririm. Devam edilsin mi?')) return
+    if (!confirm('Emin misin? Bu işlem geri alınamaz.')) return
+    replace(emptyData())
+    setMsg({ ok: true, text: 'Tüm veriler sıfırlandı.' })
+  }
+
+  return (
+    <div className="stack">
+      <Card title="Veri ve yedekleme">
+        <p className="note">
+          Veriler bu tarayıcıda saklanır. Bilgisayar değiştirirken ya da tarayıcı verilerini temizlemeden önce <b>JSON yedeği</b> indir. Excel çıktısı
+          incelemek ve paylaşmak içindir.
+        </p>
+        {msg && <div className={msg.ok ? 'ok' : 'error'}>{msg.text}</div>}
+        <div className="btn-grid">
+          <button className="btn" onClick={() => xlsRef.current.click()}>📥 Excel şablonundan içe aktar</button>
+          <button className="btn" onClick={async () => (await excel()).exportExcel(data)}>📤 Excel'e aktar</button>
+          <button className="btn" onClick={async () => (await excel()).downloadJSON(data)}>💾 Yedek indir (JSON)</button>
+          <button className="btn" onClick={() => jsonRef.current.click()}>♻️ Yedekten geri yükle</button>
+        </div>
+        <input ref={xlsRef} type="file" accept=".xlsx,.xls" hidden onChange={onExcel} />
+        <input ref={jsonRef} type="file" accept=".json,application/json" hidden onChange={onJSON} />
+      </Card>
+
+      <Card title="Genel">
+        <div className="form-row">
+          <label className="grow">Öğrenci adı<input value={settings.studentName} onChange={e => setS(s => { s.studentName = e.target.value })} /></label>
+          <label>
+            Kaç yanlış 1 doğruyu götürür?
+            <select value={settings.wrongPenalty} onChange={e => setS(s => { s.wrongPenalty = Number(e.target.value) })}>
+              <option value={4}>4 (TYT / YKS)</option>
+              <option value={3}>3 (LGS)</option>
+              <option value={0}>Götürmez</option>
+            </select>
+          </label>
+        </div>
+      </Card>
+
+      <Card title="Dersler">
+        <div className="table-wrap">
+          <table className="edit-table">
+            <thead><tr><th>Renk</th><th>Ders</th><th>Soru</th><th>Hedef net</th><th>TYT testi</th></tr></thead>
+            <tbody>
+              {settings.subjects.map((s, i) => (
+                <tr key={s.id}>
+                  <td><input type="color" value={s.color} onChange={e => setSub(i, 'color', e.target.value)} aria-label="Renk" /></td>
+                  <td><input value={s.name} onChange={e => setSub(i, 'name', e.target.value)} /></td>
+                  <td><input type="number" min="1" value={s.questions} onChange={e => setSub(i, 'questions', n(e.target.value))} /></td>
+                  <td><input type="number" min="0" step="0.25" value={s.target} onChange={e => setSub(i, 'target', n(e.target.value))} /></td>
+                  <td>
+                    <select value={s.tyt} onChange={e => setSub(i, 'tyt', e.target.value)}>
+                      {TYT_TESTS.map(t => <option key={t}>{t}</option>)}
+                      <option value="">— katma</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card title="Tahmini TYT puanı">
+        <div className="table-wrap">
+          <table className="edit-table">
+            <thead><tr><th>Test</th><th>Soru</th><th>Katsayı</th></tr></thead>
+            <tbody>
+              {TYT_TESTS.map(t => (
+                <tr key={t}>
+                  <td>{t}</td>
+                  <td><input type="number" value={settings.tyt.tests[t].questions} onChange={e => setS(s => { s.tyt.tests[t].questions = n(e.target.value) })} /></td>
+                  <td><input type="number" step="0.01" value={settings.tyt.tests[t].coef} onChange={e => setS(s => { s.tyt.tests[t].coef = n(e.target.value) })} /></td>
+                </tr>
+              ))}
+              <tr>
+                <td>Taban puan</td>
+                <td colSpan={2}><input type="number" value={settings.tyt.base} onChange={e => setS(s => { s.tyt.base = n(e.target.value) })} /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="note">Katsayılar yaklaşıktır, dershanelerin TYT hesaplamalarına göre seçilmiştir.</p>
+      </Card>
+
+      <Card title="Hata nedenleri">
+        <textarea
+          rows={7}
+          value={settings.errorReasons.join('\n')}
+          onChange={e => setS(s => { s.errorReasons = e.target.value.split('\n') })}
+          onBlur={() => setS(s => { s.errorReasons = s.errorReasons.map(x => x.trim()).filter(Boolean) })}
+        />
+        <p className="note">Her satıra bir neden yaz.</p>
+      </Card>
+
+      <Card title="Tehlikeli bölge" className="danger-zone">
+        <button className="btn danger" onClick={reset}>Tüm verileri sıfırla</button>
+      </Card>
+    </div>
+  )
+}
