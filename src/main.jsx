@@ -6,6 +6,6 @@ import './styles.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthGate>{user => <App user={user} />}</AuthGate>
+    <AuthGate>{(user, role) => <App user={user} role={role} />}</AuthGate>
   </StrictMode>
 )

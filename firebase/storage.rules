@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Soru görselleri ve deneme kitapçıkları. Yetkiler Firestore'daki meta/access belgesinden okunur.
+// Firebase konsolu → Storage → Rules'a yapıştırılır.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function isOwner() {
+      return signedIn() && email() == 'mstfavelibeyoglu@gmail.com';
+    }
+    function access() {
+      return firestore.get(/databases/(default)/documents/meta/access).data;
+    }
+    function isEditor() {
+      return isOwner() || (signedIn() && email() in access().editors);
+    }
+    function isViewer() {
+      return isEditor() || (signedIn() && email() in access().viewers);
+    }
+
+    match /students/{studentId}/files/{fileId} {
+      allow read: if isViewer();
+      // Kitapçık PDF'leri büyük olabilir; tek dosya en fazla 40 MB.
+      allow write: if isEditor() && (request.resource == null || request.resource.size < 40 * 1024 * 1024);
+    }
+  }
+}

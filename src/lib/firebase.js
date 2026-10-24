@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
-import { FIREBASE_CONFIG, ALLOWED_EMAILS, RECAPTCHA_ENTERPRISE_SITE_KEY } from '../config'
+import { FIREBASE_CONFIG, RECAPTCHA_ENTERPRISE_SITE_KEY } from '../config'
 
 export const firebaseEnabled = !!FIREBASE_CONFIG.apiKey
 
@@ -16,8 +16,6 @@ if (app && (RECAPTCHA_ENTERPRISE_SITE_KEY || import.meta.env.DEV)) {
 }
 
 const auth = app ? getAuth(app) : null
-
-export const isAllowed = user => !!user && (!ALLOWED_EMAILS.length || ALLOWED_EMAILS.includes((user.email || '').toLowerCase()))
 
 export function useAuth() {
   const [state, setState] = useState(() => ({ ready: !auth, user: null }))

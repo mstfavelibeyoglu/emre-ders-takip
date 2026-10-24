@@ -9,8 +9,46 @@ import Settings from './pages/Settings'
 import KarnePage from './pages/KarnePage'
 import MarkPage from './pages/MarkPage'
 import { dueList } from './lib/srs'
+import { app, firebaseEnabled } from './lib/firebase'
+import { useCloudStore } from './lib/cloud'
+import { enableCloudFiles, uploadAllLocal } from './lib/images'
+import { RoleContext, canEditRole } from './lib/role'
+import { STUDENT_ID } from './config'
 
-const TABS = [
+const MIGRATED = 'emre-buluta-aktarildi'
+const hasLocal = d => d.exams.length > 0 || d.mistakes.length > 0
+const localFileIds = d => [...new Set([...d.mistakes.flatMap(m => m.imageIds || []), ...d.exams.flatMap(e => (e.files || []).map(f => f.key))])]
+
+function Loading({ text }) {
+  return <div className="auth-screen"><div className="muted">{text}</div></div>
+}
+
+// Bu cihazda daha önce girilmiş veriler varsa ve ortak hesap boşsa, bir kez buluta aktarmayı önerir.
+function MigrateBanner({ local, replace, onDone }) {
+  const [busy, setBusy] = useState('')
+  const run = async () => {
+    setBusy('Veriler aktarılıyor…')
+    replace(local)
+    const ids = localFileIds(local)
+    await uploadAllLocal(ids, (i, n) => setBusy(`Görseller yükleniyor ${i}/${n}`))
+    localStorage.setItem(MIGRATED, '1')
+    onDone(`${local.exams.length} deneme ve ${local.mistakes.length} kayıt ortak hesaba aktarıldı ✓`)
+  }
+  return (
+    <div className="card migrate">
+      <b>Bu cihazda daha önce girilmiş veriler var</b>
+      <p className="muted" style={{ margin: '4px 0 10px' }}>
+        {local.exams.length} deneme ve {local.mistakes.length} hata kaydı. Ortak hesaba aktarılsın mı? Aktarınca herkes görür.
+      </p>
+      <div className="row gap wrap">
+        <button className="btn primary" disabled={!!busy} onClick={run}>{busy || 'Ortak hesaba aktar'}</button>
+        {!busy && <button className="btn ghost" onClick={() => { localStorage.setItem(MIGRATED, '1'); onDone('') }}>Aktarma</button>}
+      </div>
+    </div>
+  )
+}
+
+const ALL_TABS = [
   { id: 'dashboard', label: 'Analiz', icon: '📊' },
   { id: 'exams', label: 'Denemeler', icon: '📝' },
   { id: 'add', label: 'Ekle', icon: '＋', primary: true },
@@ -21,17 +59,47 @@ const TABS = [
 
 const readHash = () => {
   const [h] = location.hash.replace(/^#\/?/, '').split('/')
-  return h === 'karne' || h === 'mark' || TABS.some(t => t.id === h) ? h : 'dashboard'
+  return h === 'karne' || h === 'mark' || ALL_TABS.some(t => t.id === h) ? h : 'dashboard'
 }
 const readId = () => location.hash.replace(/^#\/?/, '').split('/')[1] || ''
 
-export default function App({ user }) {
-  const [data, update, replace] = useStore()
+export default function App({ user, role }) {
+  const [localData, localUpdate, localReplace] = useStore()
+  const cloudOn = firebaseEnabled && !!user
+  const canEdit = canEditRole(role)
+  const [toast, setToast] = useState('')
+  const [filesReady, setFilesReady] = useState(!cloudOn)
+  const [askMigrate, setAskMigrate] = useState(() => localStorage.getItem(MIGRATED) !== '1')
+  const cloud = useCloudStore(cloudOn, canEdit, () => setToast('Sadece görüntüleme yetkin var; değişiklik yapamazsın.'))
+
+  useEffect(() => {
+    if (!cloudOn) return
+    enableCloudFiles(app, STUDENT_ID, canEdit).finally(() => setFilesReady(true))
+  }, [cloudOn, canEdit])
+
+  if (cloudOn && cloud.error && !cloud.data) return <Loading text={cloud.error} />
+  if (cloudOn && (!cloud.data || !filesReady)) return <Loading text="Veriler yükleniyor…" />
+
+  const data = cloudOn ? cloud.data : localData
+  const update = cloudOn ? cloud.update : localUpdate
+  const replace = cloudOn ? cloud.replace : localReplace
+  const showMigrate = cloudOn && canEdit && askMigrate && cloud.empty && hasLocal(localData)
+
+  return (
+    <RoleContext.Provider value={role}>
+      <Shell {...{ user, role, canEdit, data, update, replace, toast, setToast }}>
+        {showMigrate && <MigrateBanner local={localData} replace={replace} onDone={m => { setAskMigrate(false); if (m) setToast(m) }} />}
+        {cloud.error && <div className="error">{cloud.error}</div>}
+      </Shell>
+    </RoleContext.Provider>
+  )
+}
+
+function Shell({ user, role, canEdit, data, update, replace, toast, setToast, children }) {
   const [tab, setTab] = useState(readHash)
   const [karneId, setKarneId] = useState(readId)
   const [editingExam, setEditingExam] = useState(null)
   const [mistakeForm, setMistakeForm] = useState(null)
-  const [toast, setToast] = useState('')
 
   useEffect(() => {
     const on = () => { setTab(readHash()); setKarneId(readId()) }
@@ -68,6 +136,7 @@ export default function App({ user }) {
   }
   const editExam = e => { setEditingExam(e); location.hash = '#/add'; setTab('add') }
 
+  const TABS = canEdit ? ALL_TABS : ALL_TABS.filter(t => t.id !== 'add')
   const openCount = dueList(data.mistakes).length
   const current = TABS.find(t => t.id === tab) || { label: tab === 'mark' ? 'Yanlışları seç' : 'Deneme Karnesi' }
 
@@ -103,8 +172,10 @@ export default function App({ user }) {
       <main>
         <header className="topbar no-print">
           <h1>{tab === 'add' ? (editingExam ? 'Denemeyi düzenle' : 'Deneme ekle') : current.label}</h1>
-          {tab === 'dashboard' && <button className="btn primary hide-mobile" onClick={() => go('add')}>+ Deneme ekle</button>}
+          {tab === 'dashboard' && canEdit && <button className="btn primary hide-mobile" onClick={() => go('add')}>+ Deneme ekle</button>}
+          {role === 'viewer' && <span className="badge blue">Görüntüleyici</span>}
         </header>
+        {children}
 
         {tab === 'dashboard' && <Dashboard data={data} go={go} openExam={openExam} />}
         {tab === 'add' && <ExamForm key={editingExam?.id || 'new'} data={data} update={update} editing={editingExam} done={examDone} />}
@@ -122,7 +193,7 @@ export default function App({ user }) {
         {tab === 'karne' && <KarnePage data={data} examId={karneId} go={go} openExam={openExam} onEdit={editExam} onMistakes={e => markExam(e.id)} />}
         {tab === 'mistakes' && <Mistakes data={data} update={update} openForm={setMistakeForm} />}
         {tab === 'review' && <Review data={data} update={update} go={go} />}
-        {tab === 'settings' && <Settings data={data} update={update} replace={replace} user={user} />}
+        {tab === 'settings' && <Settings data={data} update={update} replace={replace} user={user} role={role} />}
       </main>
 
       <nav className="bottom-nav no-print">
@@ -135,7 +206,7 @@ export default function App({ user }) {
         ))}
       </nav>
 
-      {mistakeForm && <MistakeForm data={data} update={update} {...mistakeForm} onClose={() => setMistakeForm(null)} />}
+      {mistakeForm && canEdit && <MistakeForm data={data} update={update} {...mistakeForm} onClose={() => setMistakeForm(null)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   )

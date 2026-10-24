@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Ders Takip: tek öğrencinin ortak verisi. Yetkiler meta/access belgesinde,
+// onu yalnızca sahip (OWNER) değiştirebilir. Firebase konsolu → Firestore → Rules'a yapıştırılır.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function isOwner() {
+      return signedIn() && email() == 'mstfavelibeyoglu@gmail.com';
+    }
+    function access() {
+      return get(/databases/$(database)/documents/meta/access).data;
+    }
+    function isEditor() {
+      return isOwner() || (signedIn() && exists(/databases/$(database)/documents/meta/access) && email() in access().editors);
+    }
+    function isViewer() {
+      return isEditor() || (signedIn() && exists(/databases/$(database)/documents/meta/access) && email() in access().viewers);
+    }
+
+    match /meta/access {
+      allow read: if isViewer();
+      allow write: if isOwner();
+    }
+
+    // Erişimi olmayan biri giriş yaptığında kendi isteğini bırakır; sahibi görür ve onaylar.
+    match /requests/{uid} {
+      allow create, update: if signedIn() && request.auth.uid == uid && request.resource.data.email == email();
+      allow read: if isOwner() || (signedIn() && request.auth.uid == uid);
+      allow delete: if isOwner();
+    }
+
+    match /students/{studentId} {
+      allow read: if isViewer();
+      allow write: if isEditor();
+      match /{collection}/{docId} {
+        allow read: if isViewer();
+        allow write: if isEditor();
+      }
+    }
+  }
+}

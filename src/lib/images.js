@@ -25,10 +25,85 @@ async function tx(mode, fn) {
   })
 }
 
-export const putImage = (id, blob) => tx('readwrite', s => s.put(blob, id))
-export const getImage = id => tx('readonly', s => s.get(id))
-export const deleteImages = ids => tx('readwrite', s => ids.forEach(id => s.delete(id)))
+const idbPut = (id, blob) => tx('readwrite', s => s.put(blob, id))
+const idbGet = id => tx('readonly', s => s.get(id))
+const idbDelete = ids => tx('readwrite', s => ids.forEach(id => s.delete(id)))
+
+// --- Bulut (Firebase Storage): her cihaz kendi önbelleğini (IndexedDB) tutar, eksik olanı buluttan indirir ---
+let cloud = null // { storage, path(id) }
+const PENDING = 'emre-bekleyen-yuklemeler'
+const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) || '[]') } catch { return [] } }
+const setPending = ids => { try { localStorage.setItem(PENDING, JSON.stringify([...new Set(ids)])) } catch {} }
+
+export async function enableCloudFiles(app, studentId, canWrite) {
+  const { getStorage, ref, uploadBytes, getBlob, deleteObject } = await import('firebase/storage')
+  const storage = getStorage(app)
+  const r = id => ref(storage, `students/${studentId}/files/${id}`)
+  cloud = {
+    canWrite,
+    upload: async (id, blob) => uploadBytes(r(id), blob, { contentType: blob.type || 'application/octet-stream' }),
+    download: id => getBlob(r(id)),
+    remove: id => deleteObject(r(id)).catch(e => { if (e.code !== 'storage/object-not-found') throw e })
+  }
+  if (canWrite) flushUploads()
+}
+
+export async function flushUploads() {
+  if (!cloud?.canWrite) return
+  for (const id of pending()) {
+    try {
+      const blob = await idbGet(id)
+      if (blob) await cloud.upload(id, blob)
+      setPending(pending().filter(x => x !== id))
+    } catch (e) {
+      console.warn('Yükleme bekletiliyor', id, e.code || e)
+      return
+    }
+  }
+}
+if (typeof window !== 'undefined') window.addEventListener('online', () => flushUploads())
+
+export async function putImage(id, blob) {
+  await idbPut(id, blob)
+  if (!cloud?.canWrite) return
+  try {
+    await cloud.upload(id, blob)
+  } catch (e) {
+    console.warn('Yükleme sonraya kaldı', id, e.code || e)
+    setPending([...pending(), id])
+  }
+}
+
+export async function getImage(id) {
+  const local = await idbGet(id)
+  if (local || !cloud) return local
+  try {
+    const blob = await cloud.download(id)
+    await idbPut(id, blob)
+    return blob
+  } catch (e) {
+    console.warn('Görsel indirilemedi', id, e.code || e)
+    return undefined
+  }
+}
+
+export async function deleteImages(ids) {
+  await idbDelete(ids)
+  if (cloud?.canWrite) await Promise.all(ids.map(id => cloud.remove(id).catch(e => console.warn('Silinemedi', id, e.code || e))))
+}
+
+// Bu cihazdaki tüm görselleri buluta yükler (ilk aktarımda).
+export async function uploadAllLocal(ids, onProgress) {
+  let i = 0
+  for (const id of ids) {
+    const blob = await idbGet(id)
+    if (blob) await cloud.upload(id, blob)
+    onProgress?.(++i, ids.length)
+  }
+}
+
 export const allImageKeys = () => tx('readonly', s => s.getAllKeys())
+// Yalnızca bu cihazdaki önbelleği temizler; buluttaki dosyalara dokunmaz.
 export const clearImages = () => tx('readwrite', s => s.clear())
 
 // Fotoğrafı makul boyuta indirir: uzun kenar en fazla 1600 px, JPEG.

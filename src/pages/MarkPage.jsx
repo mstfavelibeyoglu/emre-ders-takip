@@ -7,8 +7,10 @@ import { uid } from '../lib/calc'
 import { Card, Empty } from '../components/ui'
 import { MistakeForm } from './Mistakes'
 import AiMark from '../components/AiMark'
+import { useRole, canEditRole } from '../lib/role'
 
 export default function MarkPage({ data, update, examId, openExam }) {
+  const role = useRole()
   const exam = data.exams.find(e => e.id === examId)
   const [pages, setPages] = useState(null)
   const [idx, setIdx] = useState(0)
@@ -157,7 +159,7 @@ export default function MarkPage({ data, update, examId, openExam }) {
 
       {busy && <div className="muted" style={{ textAlign: 'center' }}>{busy}</div>}
 
-      {pages?.length > 0 && <AiMark data={data} update={update} exam={exam} pages={pages} />}
+      {pages?.length > 0 && canEditRole(role) && <AiMark data={data} update={update} exam={exam} pages={pages} />}
 
       {pages && !pages.length && !busy && (
         <Empty icon="📄" title="Denemenin kitapçığını yükle">

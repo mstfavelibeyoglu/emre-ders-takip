@@ -6,8 +6,9 @@ import { exportZip, readBackup, restoreFiles } from '../lib/backup'
 import { clearImages } from '../lib/images'
 import { firebaseEnabled, logout } from '../lib/firebase'
 import { GEMINI_MODEL } from '../config'
+import AccessPanel from '../components/AccessPanel'
 
-export default function Settings({ data, update, replace, user }) {
+export default function Settings({ data, update, replace, user, role }) {
   const { settings } = data
   const [msg, setMsg] = useState(null)
   const [zipping, setZipping] = useState('')
@@ -69,8 +70,10 @@ export default function Settings({ data, update, replace, user }) {
     <div className="stack">
       <Card title="Veri ve yedekleme">
         <p className="note">
-          Veriler, soru görselleri ve deneme dosyaları <b>sadece bu cihazdaki tarayıcıda</b> saklanır. Haftada bir <b>tam yedek (ZIP)</b> indir;
-          cihaz değiştirirken ya da tarayıcı verisini silmeden önce mutlaka indir. Excel çıktısı yalnızca sayıları içerir.
+          {role === 'local'
+            ? <>Veriler, soru görselleri ve deneme dosyaları <b>sadece bu cihazdaki tarayıcıda</b> saklanır. Haftada bir <b>tam yedek (ZIP)</b> indir.</>
+            : <>Veriler ortak hesapta (Firebase) tutulur; giriş yapan herkes aynı şeyi görür. Yine de ayda bir <b>tam yedek (ZIP)</b> indirmek iyi bir alışkanlıktır.</>}
+          {' '}Excel çıktısı yalnızca sayıları içerir.
         </p>
         {msg && <div className={msg.ok ? 'ok' : 'error'}>{msg.text}</div>}
         <div className="btn-grid">
@@ -90,7 +93,7 @@ export default function Settings({ data, update, replace, user }) {
           <div className="row gap wrap" style={{ justifyContent: 'space-between' }}>
             <div>
               <div><b>{user?.displayName}</b> <span className="muted">{user?.email}</span></div>
-              <small className="muted">Soru okuma modeli: {GEMINI_MODEL} (Firebase AI Logic)</small>
+              <small className="muted">Rol: {{ owner: 'Yönetici', editor: 'Öğrenci / düzenleyici', viewer: 'Görüntüleyici' }[role] || role} · Veriler ortak hesapta (Firebase) · Soru okuma: {GEMINI_MODEL}</small>
             </div>
             <button className="btn" onClick={logout}>Çıkış yap</button>
           </div>
@@ -98,6 +101,8 @@ export default function Settings({ data, update, replace, user }) {
           <p className="note" style={{ marginTop: 0 }}>Firebase ayarlanmadığı için giriş ve yapay zekâ kapalı (src/config.js). Uygulamanın geri kalanı normal çalışır.</p>
         )}
       </Card>
+
+      {role === 'owner' && <AccessPanel user={user} />}
 
       <Card title="Genel">
         <div className="form-row">
@@ -169,9 +174,9 @@ export default function Settings({ data, update, replace, user }) {
         <p className="note">Her satıra bir neden yaz.</p>
       </Card>
 
-      <Card title="Tehlikeli bölge" className="danger-zone">
+      {(role === 'owner' || role === 'local') && <Card title="Tehlikeli bölge" className="danger-zone">
         <button className="btn danger" onClick={reset}>Tüm verileri sıfırla</button>
-      </Card>
+      </Card>}
     </div>
   )
 }
