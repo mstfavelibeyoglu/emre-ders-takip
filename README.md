@@ -23,4 +23,20 @@ npm install
 npm run dev
 ```
 
-`main` dalına yapılan her push, GitHub Actions üzerinden GitHub Pages'e otomatik olarak yayınlanır (Settings → Pages → Source: **GitHub Actions**).
+Yayınlamak için:
+
+```bash
+npm run deploy
+```
+
+Komut siteyi derler ve `gh-pages` dalına gönderir; GitHub Pages bu daldan yayınlar: https://mstfavelibeyoglu.github.io/emre-ders-takip/
+
+## Firebase anahtarı hakkında
+
+`src/config.js` içindeki Firebase `apiKey` bir **sır değildir**. Her Firebase web uygulamasında tarayıcıya gönderilir ve projeyi tanıtır. `.env` dosyasına taşınsa bile derlenen sitede görünür. Güvenliği şunlar sağlar:
+
+- Google Cloud'da anahtara konan **site ve API kısıtlamaları**
+- **App Check** (reCAPTCHA Enterprise)
+- **Google ile giriş** ve izinli e-posta listesi
+
+Gemini'nin asıl API anahtarı Firebase'in sunucusundadır; repoda ya da sitede yer almaz.
