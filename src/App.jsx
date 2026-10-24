@@ -25,7 +25,7 @@ const readHash = () => {
 }
 const readId = () => location.hash.replace(/^#\/?/, '').split('/')[1] || ''
 
-export default function App() {
+export default function App({ user }) {
   const [data, update, replace] = useStore()
   const [tab, setTab] = useState(readHash)
   const [karneId, setKarneId] = useState(readId)
@@ -86,7 +86,7 @@ export default function App() {
           <img src="./icon.svg" alt="" width="32" height="32" />
           <div>
             <b>Ders Takip</b>
-            <small>{data.settings.studentName}</small>
+            <small>{user?.email || data.settings.studentName}</small>
           </div>
         </div>
         <nav>
@@ -122,7 +122,7 @@ export default function App() {
         {tab === 'karne' && <KarnePage data={data} examId={karneId} go={go} openExam={openExam} onEdit={editExam} onMistakes={e => markExam(e.id)} />}
         {tab === 'mistakes' && <Mistakes data={data} update={update} openForm={setMistakeForm} />}
         {tab === 'review' && <Review data={data} update={update} go={go} />}
-        {tab === 'settings' && <Settings data={data} update={update} replace={replace} />}
+        {tab === 'settings' && <Settings data={data} update={update} replace={replace} user={user} />}
       </main>
 
       <nav className="bottom-nav no-print">

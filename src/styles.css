@@ -371,3 +371,28 @@ textarea { resize: vertical; }
 .rank-bar span { position: absolute; top: -4px; width: 12px; height: 18px; border-radius: 4px; background: var(--text); border: 2px solid var(--card); }
 .rank-legend { display: flex; justify-content: space-between; color: var(--muted); margin-top: 4px; }
 .mini tr.best td { background: color-mix(in srgb, var(--green) 14%, transparent); }
+
+/* giriş */
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.auth-card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 32px 28px; max-width: 380px; width: 100%; text-align: center; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; align-items: center; }
+
+/* yapay zekâ ile işaretleme */
+.key-list { display: flex; flex-direction: column; gap: 6px; }
+.key-row { display: grid; grid-template-columns: 28px minmax(90px, 160px) 1fr auto auto; gap: 8px; align-items: center; }
+.key-row input { padding: 6px 8px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; }
+.ai-msg { white-space: pre-wrap; font-size: 0.8rem; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 8px 10px; margin: 0; max-height: 140px; overflow: auto; }
+.ai-sum td, .ai-sum th { white-space: nowrap; }
+.ai-sum select { padding: 4px 6px; width: auto; }
+.ai-rows { display: flex; flex-direction: column; gap: 8px; }
+.ai-row { display: flex; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.ai-row.unsure { border-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+.ai-row.saved { opacity: 0.55; }
+.ai-thumb { width: 220px; flex-shrink: 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ai-thumb img { width: 100%; display: block; }
+@media (max-width: 860px) {
+  .ai-row { flex-direction: column; }
+  .ai-thumb { width: 100%; }
+  .key-row { grid-template-columns: 24px 1fr auto auto; }
+  .key-row .mono { grid-column: 1 / -1; order: 5; }
+}

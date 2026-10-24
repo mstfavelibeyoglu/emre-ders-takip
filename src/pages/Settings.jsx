@@ -4,8 +4,10 @@ import { TYT_TESTS, emptyData } from '../lib/defaults'
 const excel = () => import('../lib/excel')
 import { exportZip, readBackup, restoreFiles } from '../lib/backup'
 import { clearImages } from '../lib/images'
+import { firebaseEnabled, logout } from '../lib/firebase'
+import { GEMINI_MODEL } from '../config'
 
-export default function Settings({ data, update, replace }) {
+export default function Settings({ data, update, replace, user }) {
   const { settings } = data
   const [msg, setMsg] = useState(null)
   const [zipping, setZipping] = useState('')
@@ -81,6 +83,20 @@ export default function Settings({ data, update, replace }) {
         </div>
         <input ref={xlsRef} type="file" accept=".xlsx,.xls" hidden onChange={onExcel} />
         <input ref={jsonRef} type="file" accept=".zip,.json,application/zip,application/json" hidden onChange={onJSON} />
+      </Card>
+
+      <Card title="Hesap ve yapay zekâ">
+        {firebaseEnabled ? (
+          <div className="row gap wrap" style={{ justifyContent: 'space-between' }}>
+            <div>
+              <div><b>{user?.displayName}</b> <span className="muted">{user?.email}</span></div>
+              <small className="muted">Soru okuma modeli: {GEMINI_MODEL} (Firebase AI Logic)</small>
+            </div>
+            <button className="btn" onClick={logout}>Çıkış yap</button>
+          </div>
+        ) : (
+          <p className="note" style={{ marginTop: 0 }}>Firebase ayarlanmadığı için giriş ve yapay zekâ kapalı (src/config.js). Uygulamanın geri kalanı normal çalışır.</p>
+        )}
       </Card>
 
       <Card title="Genel">
