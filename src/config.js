@@ -2,12 +2,12 @@
 // Bu değerler gizli değildir (her web uygulamasında tarayıcıya gider); güvenliği App Check ve
 // Authentication sağlar. apiKey boşsa uygulama girişsiz ve yapay zekâsız çalışır.
 export const FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: ''
+  apiKey: 'AIzaSyBE6WjXDJhCdLeIdUFFQtTf7UlON6239K4',
+  authDomain: 'pediatri-asistans.firebaseapp.com',
+  projectId: 'pediatri-asistans',
+  storageBucket: 'pediatri-asistans.firebasestorage.app',
+  messagingSenderId: '52789517949',
+  appId: '1:52789517949:web:df5ba16a159bf21b761b14'
 }
 
 // Siteye girebilecek Google hesapları (küçük harf). Boş bırakılırsa her Google hesabı girebilir.
