@@ -25,8 +25,12 @@ export default function AuthGate({ children }) {
         <h1>Ders Takip</h1>
         {user ? (
           <>
-            <p className="muted"><b>{user.email}</b> hesabının bu uygulamaya erişimi yok.</p>
-            <button className="btn" onClick={logout}>Başka hesapla gir</button>
+            <p className="muted">Bu hesabın henüz erişimi yok. Aşağıdaki e-postayı Mustafa'ya gönder, seni ekleyecek.</p>
+            <div className="auth-email">{user.email}</div>
+            <div className="row gap center wrap">
+              <button className="btn primary" onClick={() => { navigator.clipboard?.writeText(user.email); setError('E-posta kopyalandı ✓') }}>Kopyala</button>
+              <button className="btn" onClick={logout}>Başka hesapla gir</button>
+            </div>
           </>
         ) : (
           <>
@@ -34,7 +38,7 @@ export default function AuthGate({ children }) {
             <button className="btn primary big-btn" onClick={signIn}>Google ile giriş yap</button>
           </>
         )}
-        {error && <div className="error">{error}</div>}
+        {error && <div className={error.endsWith('✓') ? 'ok' : 'error'}>{error}</div>}
       </div>
     </div>
   )

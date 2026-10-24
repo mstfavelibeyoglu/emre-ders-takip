@@ -11,7 +11,8 @@ export const FIREBASE_CONFIG = {
 }
 
 // Siteye girebilecek Google hesapları (küçük harf). Boş bırakılırsa her Google hesabı girebilir.
-export const ALLOWED_EMAILS = []
+// Listede olmayan biri giriş yaptığında e-postası ekranda gösterilir; buraya eklenip yeniden yayınlanır.
+export const ALLOWED_EMAILS = ['mstfavelibeyoglu@gmail.com']
 
 // Firebase konsolu → App Check → web uygulaması → reCAPTCHA Enterprise site anahtarı.
 export const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LdB_f4tAAAAANXM8wy73X0Qe6coLmAkGe-LzYjY'

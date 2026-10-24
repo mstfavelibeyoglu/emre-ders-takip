@@ -396,3 +396,4 @@ textarea { resize: vertical; }
   .key-row { grid-template-columns: 24px 1fr auto auto; }
   .key-row .mono { grid-column: 1 / -1; order: 5; }
 }
+.auth-email { font-size: 1.1rem; font-weight: 700; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); word-break: break-all; user-select: all; }
