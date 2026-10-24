@@ -8,10 +8,11 @@ export const firebaseEnabled = !!FIREBASE_CONFIG.apiKey
 
 export const app = firebaseEnabled ? initializeApp(FIREBASE_CONFIG) : null
 
-if (app && RECAPTCHA_ENTERPRISE_SITE_KEY) {
-  // Yerel geliştirmede App Check hata ayıklama belirteci kullanılır (konsola bir kez kaydedilir).
+// Yerel geliştirmede App Check, Firebase konsoluna kaydedilen hata ayıklama belirteciyle çalışır
+// (belirteç tarayıcı konsoluna bir kez yazılır); reCAPTCHA yalnızca yayındaki sitede kullanılır.
+if (app && (RECAPTCHA_ENTERPRISE_SITE_KEY || import.meta.env.DEV)) {
   if (import.meta.env.DEV) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true
-  initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY), isTokenAutoRefreshEnabled: true })
+  initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY || 'yalnizca-gelistirme'), isTokenAutoRefreshEnabled: true })
 }
 
 const auth = app ? getAuth(app) : null
