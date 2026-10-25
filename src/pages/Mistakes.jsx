@@ -98,8 +98,12 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
     for (const file of files) {
       if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) setCrop({ file })
       else {
-        const blob = await compress(file, 2000, 0.85)
-        setItems(xs => [...xs, { blob }])
+        try {
+          const blob = await compress(file, 2000, 0.85)
+          setItems(xs => [...xs, { blob }])
+        } catch (err) {
+          alert(err.message || 'Fotoğraf eklenemedi, tekrar dene.')
+        }
       }
     }
   }

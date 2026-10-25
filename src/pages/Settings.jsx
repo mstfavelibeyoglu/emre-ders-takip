@@ -201,9 +201,10 @@ function SyncCard({ data, role }) {
       r.uploaded ? `${r.uploaded} fotoğraf bu cihazdan buluta yüklendi ✓` : '',
       r.localOnly ? `${r.localOnly} fotoğraf sadece bu cihazda duruyor${canWrite ? '' : ' (görüntüleyici yükleyemez)'}.` : '',
       r.missing ? `${r.missing} fotoğraf ne bulutta ne bu cihazda: fotoğrafı çeken cihazda bu butona basılmalı.` : '',
+      r.blank?.length ? `${r.blank.length} fotoğraf çok küçük, büyük ihtimalle boş (beyaz) kaydedilmiş; bu soruların fotoğrafı yeniden çekilmeli.` : '',
       r.error || ''
     ].filter(Boolean)
-    setMsg({ ok: !r.error && !r.missing && !r.localOnly, text: lines.join('\n') })
+    setMsg({ ok: !r.error && !r.missing && !r.localOnly && !r.blank?.length, text: lines.join('\n') })
   }
 
   return (

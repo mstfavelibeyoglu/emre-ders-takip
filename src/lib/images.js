@@ -43,8 +43,10 @@ const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) ||
 const setPending = ids => { try { localStorage.setItem(PENDING, JSON.stringify([...new Set(ids)])) } catch {} }
 
 export async function enableCloudFiles(app, studentId, canWrite) {
-  const { getStorage, ref, uploadBytes, getBlob, getDownloadURL, deleteObject, listAll } = await import('firebase/storage')
+  const { getStorage, ref, uploadBytes, getBlob, getDownloadURL, deleteObject, listAll, getMetadata } = await import('firebase/storage')
   const storage = getStorage(app)
+  // Bağlantı/CORS hatalarında dakikalarca yeniden denemek yerine çabuk vazgeç.
+  storage.maxOperationRetryTime = 8000
   const r = id => ref(storage, `students/${studentId}/files/${id}`)
   cloud = {
     canWrite,
@@ -52,6 +54,7 @@ export async function enableCloudFiles(app, studentId, canWrite) {
     download: id => getBlob(r(id)),
     url: id => getDownloadURL(r(id)),
     list: async () => (await listAll(ref(storage, `students/${studentId}/files`))).items.map(i => i.name),
+    size: async id => (await getMetadata(r(id))).size,
     remove: id => deleteObject(r(id)).catch(e => { if (e.code !== 'storage/object-not-found') throw e })
   }
   if (canWrite) flushUploads()
@@ -108,13 +111,8 @@ async function imageSrc(id) {
   const local = await idbGet(id)
   if (local) return { url: URL.createObjectURL(local) }
   if (!cloud) return { error: 'bu cihazda yok' }
-  try {
-    const blob = await cloud.download(id)
-    await idbPut(id, blob)
-    return { url: URL.createObjectURL(blob) }
-  } catch (e) {
-    if (e.code === 'storage/object-not-found' || e.code === 'storage/unauthorized') return { error: ERR[e.code], code: e.code }
-  }
+  // Dosyayı indirmeye çalışma: depoda CORS ayarı yoksa getBlob hata vermeden uzun süre yeniden dener
+  // ve kutu boş (beyaz) kalır. İndirme adresi <img> ile CORS'suz açılır.
   try {
     return { url: await cloud.url(id) }
   } catch (e) {
@@ -141,17 +139,63 @@ export const allImageKeys = () => tx('readonly', s => s.getAllKeys())
 // Yalnızca bu cihazdaki önbelleği temizler; buluttaki dosyalara dokunmaz.
 export const clearImages = () => tx('readwrite', s => s.clear())
 
-// Fotoğrafı makul boyuta indirir: uzun kenar en fazla 1600 px, JPEG.
-export async function compress(source, max = 1600, quality = 0.82) {
-  const bmp = source instanceof HTMLCanvasElement ? source : await createImageBitmap(source)
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height))
+// Görseli <img> ile çözüp (EXIF yönü uygulanır) doğrudan hedef boyutta bir tuvale çizer.
+// Tam çözünürlüklü (12 MP) ara tuval kurulmaz: iPhone bellek sınırını aşınca hata vermeden BEYAZ tuval üretebiliyor.
+export async function toCanvas(source, max = 2000) {
+  let el, w, h, url
+  if (source instanceof HTMLCanvasElement) {
+    el = source; w = source.width; h = source.height
+  } else {
+    url = URL.createObjectURL(source)
+    try {
+      const img = new Image()
+      img.src = url
+      await img.decode()
+      el = img; w = img.naturalWidth; h = img.naturalHeight
+    } catch {
+      el = await createImageBitmap(source); w = el.width; h = el.height
+    }
+  }
+  const scale = Math.min(1, max / Math.max(w, h))
   const c = document.createElement('canvas')
-  c.width = Math.round(bmp.width * scale)
-  c.height = Math.round(bmp.height * scale)
+  c.width = Math.max(1, Math.round(w * scale))
+  c.height = Math.max(1, Math.round(h * scale))
   const ctx = c.getContext('2d')
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, c.width, c.height)
-  ctx.drawImage(bmp, 0, 0, c.width, c.height)
+  ctx.drawImage(el, 0, 0, c.width, c.height)
+  if (url) URL.revokeObjectURL(url)
+  return c
+}
+
+// Tuval bomboş beyaz mı? (çizim sessizce başarısız olduysa)
+export function isBlank(canvas) {
+  const n = 48
+  const t = document.createElement('canvas')
+  t.width = n; t.height = n
+  const ctx = t.getContext('2d')
+  ctx.drawImage(canvas, 0, 0, n, n)
+  const px = ctx.getImageData(0, 0, n, n).data
+  let sum = 0, sq = 0
+  for (let i = 0; i < px.length; i += 4) {
+    const g = (px[i] + px[i + 1] + px[i + 2]) / 3
+    sum += g; sq += g * g
+  }
+  const k = px.length / 4
+  const mean = sum / k
+  return mean > 245 && Math.sqrt(Math.max(0, sq / k - mean * mean)) < 3
+}
+
+export class BlankImageError extends Error {}
+
+// Fotoğrafı makul boyuta indirir: uzun kenar en fazla `max` px, JPEG. Sonuç boş çıkarsa küçültülmüş
+// hâl yerine orijinal (JPEG/PNG) saklanır; o da olmazsa hata verilir, beyaz görüntü asla kaydedilmez.
+export async function compress(source, max = 1600, quality = 0.82) {
+  const c = await toCanvas(source, max)
+  if (isBlank(c)) {
+    if (source instanceof Blob && /^image\/(jpeg|png|webp)$/.test(source.type) && source.size > 40000) return source
+    throw new BlankImageError('Fotoğraf işlenemedi (boş çıktı). Lütfen tekrar çek.')
+  }
   return new Promise(r => c.toBlob(r, 'image/jpeg', quality))
 }
 
@@ -215,7 +259,7 @@ export const pendingUploads = () => pending()
 
 // Hata defterindeki fotoğrafları bulutla karşılaştırır; buluta hiç gitmemiş olanlar bu cihazda varsa yükler.
 export async function checkAndRepair(ids) {
-  const out = { total: ids.length, inCloud: 0, uploaded: 0, localOnly: 0, missing: 0, error: null }
+  const out = { total: ids.length, inCloud: 0, uploaded: 0, localOnly: 0, missing: 0, blank: [], error: null }
   if (!cloud) return { ...out, error: 'bulut kapalı' }
   let names
   try {
@@ -224,7 +268,12 @@ export async function checkAndRepair(ids) {
     return { ...out, error: 'bulut listesi okunamadı: ' + (ERR[e.code] || e.code || e.message) }
   }
   for (const id of ids) {
-    if (names.has(id)) { out.inCloud++; continue }
+    if (names.has(id)) {
+      out.inCloud++
+      // Gerçek bir soru fotoğrafı onlarca-yüzlerce KB tutar; çok küçük dosya büyük ihtimalle boş beyaz görüntüdür.
+      try { if ((await cloud.size(id)) < 15000) out.blank.push(id) } catch {}
+      continue
+    }
     const blob = await idbGet(id)
     if (!blob) { out.missing++; continue }
     if (!cloud.canWrite) { out.localOnly++; continue }

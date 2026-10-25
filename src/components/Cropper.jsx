@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './ui'
-import { compress, trimWhite } from '../lib/images'
+import { compress, trimWhite, toCanvas } from '../lib/images'
 
 // Aynı oturumda açılan son PDF'i hatırla: bir denemedeki birden çok yanlışı art arda kırpmak için.
 let lastPdf = null
@@ -23,14 +23,8 @@ async function renderPage(doc, n) {
   return c
 }
 
-async function imageCanvas(file) {
-  const bmp = await createImageBitmap(file)
-  const c = document.createElement('canvas')
-  c.width = bmp.width
-  c.height = bmp.height
-  c.getContext('2d').drawImage(bmp, 0, 0)
-  return c
-}
+// Kırpma için yeterli ama iPhone belleğini zorlamayacak boyut.
+const imageCanvas = file => toCanvas(file, 2400)
 
 function rotate(src) {
   const c = document.createElement('canvas')
@@ -131,7 +125,12 @@ export default function Cropper({ source, onDone, onClose }) {
       out.height = Math.max(1, Math.round(rect.h * canvas.height))
       out.getContext('2d').drawImage(canvas, sx, sy, out.width, out.height, 0, 0, out.width, out.height)
     }
-    onDone(await compress(rect ? trimWhite(out) : out))
+    try {
+      onDone(await compress(rect ? trimWhite(out) : out))
+    } catch (e) {
+      setBusy(false)
+      setError(e.message)
+    }
   }
 
   const pages = pdf?.doc.numPages || 0
