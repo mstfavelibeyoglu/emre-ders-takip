@@ -4,7 +4,10 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { FIREBASE_CONFIG, RECAPTCHA_ENTERPRISE_SITE_KEY } from '../config'
 
-export const firebaseEnabled = !!FIREBASE_CONFIG.apiKey
+// Yalnızca geliştirmede: localStorage 'dev-local' = '1' iken Firebase'siz (girişsiz, yerel veriyle) açılır.
+const DEV_LOCAL = import.meta.env.DEV && typeof localStorage !== 'undefined' && localStorage.getItem('dev-local') === '1'
+
+export const firebaseEnabled = !!FIREBASE_CONFIG.apiKey && !DEV_LOCAL
 
 export const app = firebaseEnabled ? initializeApp(FIREBASE_CONFIG) : null
 

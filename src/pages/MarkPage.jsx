@@ -1,12 +1,13 @@
 // Denemenin tamamını (PDF / fotoğraflar) yükle, sayfalarda yanlış yaptığın sorulara dokun.
 // Dijital PDF'lerde soru kutuları otomatik bulunur; fotoğraflarda soru parmakla çerçevelenir.
 import { useEffect, useRef, useState } from 'react'
-import { putImage, deleteImages, compress } from '../lib/images'
+import { putImage, deleteImages, compress, getImage, rotateBlob } from '../lib/images'
 import { isPdf, openFiles, renderPage, cropBlob } from '../lib/pages'
 import { uid } from '../lib/calc'
 import { Card, Empty } from '../components/ui'
 import { MistakeForm } from './Mistakes'
-import AiMark from '../components/AiMark'
+import AiMark, { AiExplain } from '../components/AiMark'
+import { aiEnabled } from '../lib/ai'
 import { useRole, canEditRole } from '../lib/role'
 
 export default function MarkPage({ data, update, examId, openExam }) {
@@ -18,6 +19,7 @@ export default function MarkPage({ data, update, examId, openExam }) {
   const [rect, setRect] = useState(null)
   const [draw, setDraw] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [tick, setTick] = useState(0)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState('')
   const [sectionSubject, setSectionSubject] = useState(() => exam?.sectionMap || {})
@@ -41,7 +43,7 @@ export default function MarkPage({ data, update, examId, openExam }) {
       })
       .catch(e => { console.error(e); setPages([]) })
       .finally(() => setBusy(''))
-  }, [filesKey])
+  }, [filesKey, tick])
 
   const page = pages?.[idx]
   useEffect(() => {
@@ -83,6 +85,20 @@ export default function MarkPage({ data, update, examId, openExam }) {
     }
     update(d => { const x = d.exams.find(y => y.id === exam.id); x.files = [...(x.files || []), ...added]; return d })
     setBusy('')
+  }
+
+  const rotatePage = async () => {
+    if (!page?.key) return
+    setBusy('Döndürülüyor…')
+    try {
+      const blob = await getImage(page.key)
+      if (blob) await putImage(page.key, await rotateBlob(blob))
+      // Bu sayfanın kayıtlı yapay zekâ sonucu artık geçersiz.
+      if (exam.ai?.[idx]) update(d => { delete d.exams.find(x => x.id === exam.id).ai[idx]; return d })
+      setTick(t => t + 1)
+    } finally {
+      setBusy('')
+    }
   }
 
   const removeFiles = () => {
@@ -161,9 +177,11 @@ export default function MarkPage({ data, update, examId, openExam }) {
 
       {pages?.length > 0 && canEditRole(role) && <AiMark data={data} update={update} exam={exam} pages={pages} />}
 
+      {pages && !pages.length && !busy && aiEnabled && canEditRole(role) && <Card><AiExplain open /></Card>}
+
       {pages && !pages.length && !busy && (
         <Empty icon="📄" title="Denemenin kitapçığını yükle">
-          <p>PDF'in tamamını ya da sayfaların fotoğraflarını ekle. Sonra yanlış yaptığın sorulara dokunarak seçersin.<br />Dosyalar yalnızca bu cihazda saklanır.</p>
+          <p>PDF'in tamamını ya da sayfaların fotoğraflarını ekle. Sonra yanlış yaptığın sorulara dokunarak seçersin{aiEnabled && canEditRole(role) ? <> ya da <b>yapay zekâya otomatik buldurursun</b></> : ''}.</p>
           <div className="row center gap wrap">
             <button className="btn primary" onClick={() => fileRef.current.click()}>📄 PDF / fotoğraf seç</button>
             <button className="btn" onClick={() => camRef.current.click()}>📷 Fotoğraf çek</button>
@@ -192,7 +210,12 @@ export default function MarkPage({ data, update, examId, openExam }) {
             </p>
           )}
           {page.kind === 'pdf' && !page.anchors.length && <p className="note">Bu sayfada soru bulunamadı (kapak/yönerge sayfası ya da taranmış PDF olabilir). Soruyu "Elle çiz" ile çerçevele.</p>}
-          {page.kind === 'img' && <p className="note">Soruyu parmağınla ya da fareyle sürükleyerek çerçevele.</p>}
+          {page.kind === 'img' && (
+            <div className="row gap wrap" style={{ alignItems: 'center' }}>
+              <p className="note" style={{ margin: 0, flex: 1 }}>Soruyu "Elle çiz" ile çerçevele. Fotoğraf ters ya da yan çıktıysa döndür.</p>
+              <button className="btn small" disabled={!!busy} onClick={rotatePage}>⟳ Sayfayı döndür</button>
+            </div>
+          )}
           <div className="row gap wrap" style={{ marginTop: 8 }}>
             <button className={'btn small ' + (draw ? 'primary' : '')} onClick={() => { setDraw(d => !d); setRect(null) }}>
               ✏️ Elle çiz {draw ? 'açık' : 'kapalı'}

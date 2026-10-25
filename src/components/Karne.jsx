@@ -116,6 +116,7 @@ export default function Karne({ rep, studentName, actions }) {
               center={fmt(tot.net, 2)}
               sub="net"
               legend
+              footer={<>{overall ? 'Ortalama soru' : 'Toplam soru'} <b>{fmt(tot.q, overall ? 1 : 0)}</b></>}
               parts={[
                 { label: 'Doğru', value: tot.d, color: DYB_COLORS.d },
                 { label: 'Yanlış', value: tot.y, color: DYB_COLORS.y },
@@ -209,8 +210,8 @@ export default function Karne({ rep, studentName, actions }) {
                   <tr>
                     <th>{g.subject.name} Konu Analizi</th>
                     <th>SS</th>
-                    <th>Başarı (%)</th>
-                    <th>Genel (%)</th>
+                    <th>Başarı %</th>
+                    <th>Genel %</th>
                     <th>Hata</th>
                   </tr>
                 </thead>

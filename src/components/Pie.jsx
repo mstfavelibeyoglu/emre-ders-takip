@@ -1,6 +1,6 @@
 // Hafif SVG pasta/halka grafikler: karnede çok sayıda küçük grafik olduğu için Chart.js yerine.
 
-export function Donut({ parts, size = 120, thickness = 18, center, sub, legend = false }) {
+export function Donut({ parts, size = 120, thickness = 18, center, sub, legend = false, footer }) {
   const total = parts.reduce((a, p) => a + Math.max(0, p.value || 0), 0)
   const r = (size - thickness) / 2
   const c = 2 * Math.PI * r
@@ -51,6 +51,7 @@ export function Donut({ parts, size = 120, thickness = 18, center, sub, legend =
               {total > 0 && <small className="muted"> %{Math.round((p.value / total) * 100)}</small>}
             </li>
           ))}
+          {footer && <li className="legend-total">{footer}</li>}
         </ul>
       )}
     </div>

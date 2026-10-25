@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { repeatCount, fmtDate, today, uid } from '../lib/calc'
 import { TOPIC_SUGGESTIONS } from '../lib/defaults'
-import { putImage, deleteImages } from '../lib/images'
+import { putImage, deleteImages, getImage, rotateBlob } from '../lib/images'
 import { boxOf, dueOf, isMastered, MASTERED } from '../lib/srs'
 import { Card, Empty, Badge, Modal } from '../components/ui'
 import Cropper, { hasLastPdf, lastPdfName } from '../components/Cropper'
@@ -21,8 +21,9 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
     ...initial
   })
   const [f, setF] = useState(() => (editing ? { imageIds: [], answer: '', given: '', ...editing } : blank()))
-  const [blobs, setBlobs] = useState(() => (initial?.blobs ? [...initial.blobs] : []))
-  const [removed, setRemoved] = useState([])
+  // Görseller sırayla: kayıtlı olanlar { id }, yeni ya da döndürülmüş olanlar { blob }
+  const [items, setItems] = useState(() => [...(editing?.imageIds || []).map(id => ({ id })), ...(initial?.blobs || []).map(blob => ({ blob }))])
+  const [rotating, setRotating] = useState(-1)
   const [crop, setCrop] = useState(null)
   const [added, setAdded] = useState(0)
   const camRef = useRef(null)
@@ -35,20 +36,22 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
   }, [data.mistakes, f.subjectId])
 
   const count = repeatCount(data.mistakes.filter(m => m.id !== editing?.id), f) + (f.topic ? 1 : 0)
-  const hasContent = f.topic.trim() || blobs.length || f.imageIds.length
+  const hasContent = f.topic.trim() || items.length
 
   const save = async (e, again) => {
     e?.preventDefault()
     if (!hasContent) return
-    const newIds = []
-    for (const b of blobs) {
+    const ids = []
+    for (const it of items) {
+      if (it.id) { ids.push(it.id); continue }
       const id = 'q-' + uid()
-      await putImage(id, b)
-      newIds.push(id)
+      await putImage(id, it.blob)
+      ids.push(id)
     }
+    const removed = (editing?.imageIds || []).filter(id => !ids.includes(id))
     if (removed.length) await deleteImages(removed)
     const { blobs: _, ...rest } = f
-    const rec = { ...rest, topic: f.topic.trim(), imageIds: [...f.imageIds.filter(id => !removed.includes(id)), ...newIds], id: editing?.id || uid(), createdAt: editing?.createdAt || Date.now() }
+    const rec = { ...rest, topic: f.topic.trim(), imageIds: ids, id: editing?.id || uid(), createdAt: editing?.createdAt || Date.now() }
     update(d => {
       const i = d.mistakes.findIndex(x => x.id === rec.id)
       if (i >= 0) d.mistakes[i] = rec
@@ -58,10 +61,22 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
     onSaved?.(rec)
     if (again) {
       setAdded(n => n + 1)
-      setBlobs([])
-      setRemoved([])
+      setItems([])
       setF(p => ({ ...blank(), subjectId: p.subjectId, reason: p.reason }))
     } else onClose()
+  }
+
+  const rotate = async i => {
+    setRotating(i)
+    try {
+      const it = items[i]
+      const src = it.blob || (await getImage(it.id))
+      if (!src) return
+      const blob = await rotateBlob(src)
+      setItems(xs => xs.map((x, j) => (j === i ? { blob } : x)))
+    } finally {
+      setRotating(-1)
+    }
   }
 
   const pick = (e, reuse) => {
@@ -80,16 +95,11 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
           <div>
             <div className="label">Soru görseli</div>
             <div className="thumbs">
-              {f.imageIds.filter(id => !removed.includes(id)).map(id => (
-                <div key={id} className="thumb">
-                  <QImage id={id} />
-                  <button type="button" className="thumb-x" onClick={() => setRemoved(r => [...r, id])} aria-label="Görseli kaldır">✕</button>
-                </div>
-              ))}
-              {blobs.map((b, i) => (
-                <div key={i} className="thumb">
-                  <QImage blob={b} />
-                  <button type="button" className="thumb-x" onClick={() => setBlobs(bs => bs.filter((_, j) => j !== i))} aria-label="Görseli kaldır">✕</button>
+              {items.map((it, i) => (
+                <div key={it.id || i} className="thumb">
+                  {it.id ? <QImage id={it.id} /> : <QImage blob={it.blob} />}
+                  <button type="button" className="thumb-x" onClick={() => setItems(xs => xs.filter((_, j) => j !== i))} aria-label="Görseli kaldır">✕</button>
+                  <button type="button" className="thumb-rot" disabled={rotating === i} onClick={() => rotate(i)} aria-label="Görseli döndür" title="90° döndür">⟳</button>
                 </div>
               ))}
             </div>
@@ -161,7 +171,7 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
           </div>
         </form>
       </Modal>
-      {crop && <Cropper source={crop} onClose={() => setCrop(null)} onDone={b => { setBlobs(bs => [...bs, b]); setCrop(null) }} />}
+      {crop && <Cropper source={crop} onClose={() => setCrop(null)} onDone={b => { setItems(xs => [...xs, { blob: b }]); setCrop(null) }} />}
     </>
   )
 }

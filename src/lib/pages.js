@@ -30,7 +30,7 @@ export async function openFiles(files) {
         pages.push({ kind: 'pdf', doc, pageNo: i, anchors: a, section: a.length ? section : null, label: `${f.name} · s.${i}` })
       }
     } else {
-      pages.push({ kind: 'img', blob, anchors: [], section: null, label: f.name })
+      pages.push({ kind: 'img', blob, key: f.key, anchors: [], section: null, label: f.name })
     }
   }
   return pages

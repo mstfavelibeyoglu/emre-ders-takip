@@ -120,6 +120,19 @@ export async function compress(source, max = 1600, quality = 0.82) {
   return new Promise(r => c.toBlob(r, 'image/jpeg', quality))
 }
 
+// Ters ya da yan çekilmiş fotoğrafı saat yönünde 90° döndürür.
+export async function rotateBlob(blob, quality = 0.88) {
+  const bmp = await createImageBitmap(blob)
+  const c = document.createElement('canvas')
+  c.width = bmp.height
+  c.height = bmp.width
+  const ctx = c.getContext('2d')
+  ctx.translate(c.width, 0)
+  ctx.rotate(Math.PI / 2)
+  ctx.drawImage(bmp, 0, 0)
+  return new Promise(r => c.toBlob(r, 'image/jpeg', quality))
+}
+
 // Kırpılan sorunun etrafındaki beyaz boşluğu keser (soru kutusu bir sonraki soruya kadar uzanır).
 export function trimWhite(src, pad = 14) {
   const { width: w, height: h } = src

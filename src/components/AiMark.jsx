@@ -243,6 +243,21 @@ function CropPreview({ canvas, box }) {
   return <div className="ai-thumb">{blob ? <QImage blob={blob} /> : <div className="qimg-empty" />}</div>
 }
 
+export function AiExplain({ open }) {
+  return (
+    <details className="ai-explain" open={open}>
+      <summary>Bu ne işe yarar?</summary>
+      <ol>
+        <li><b>Cevap anahtarını</b> fotoğrafla ya da yapıştır; biçimi önemli değil.</li>
+        <li>Yapay zekâ kitapçığın her sayfasında Emre'nin <b>daire içine aldığı şıkkı</b> okur ve anahtarla karşılaştırır.</li>
+        <li><b>Yanlış ve boş</b> soruları bulur, sayfadan kırpar ve sana tek ekranda gösterir.</li>
+        <li>Sen kontrol edip <b>Kaydet</b>'e basınca hepsi hata defterine girer ve zamanı gelince <b>Tekrar</b> ekranında yeniden sorulur.</li>
+      </ol>
+      <p className="muted">Böylece yanlışları tek tek elle seçip kırpmaya gerek kalmaz. Emin olamadığı soruları sarı işaretler, son kararı sen verirsin. Deneme başına maliyet yaklaşık 3–4 sent.</p>
+    </details>
+  )
+}
+
 export default function AiMark({ data, update, exam, pages }) {
   const [from, setFrom] = useState(() => Math.max(1, (pages.findIndex(p => p.anchors.length) + 1) || 1))
   const [to, setTo] = useState(pages.length)
@@ -299,8 +314,9 @@ export default function AiMark({ data, update, exam, pages }) {
       <div className="stack-sm">
         <div className="row gap" style={{ justifyContent: 'space-between' }}>
           <h2>🤖 Yanlışları otomatik bul</h2>
-          <small className="muted">Gemini · daire içine alınan şıkları okur</small>
+          <small className="muted">Gemini yapay zekâ</small>
         </div>
+        <AiExplain />
         <AnswerKey exam={exam} update={update} />
         <div className="row gap wrap" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <b>2. Kitapçığı oku</b>
