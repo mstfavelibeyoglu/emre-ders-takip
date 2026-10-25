@@ -82,7 +82,7 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
     try {
       const it = items[i]
       const src = it.blob || (await getImage(it.id))
-      if (!src) return
+      if (!src) return alert('Bu fotoğraf bu cihaza indirilemedi; döndürmek için fotoğrafı çeken cihazdan dene.')
       const blob = await rotateBlob(src)
       setItems(xs => xs.map((x, j) => (j === i ? { blob } : x)))
     } finally {
@@ -107,6 +107,7 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
     const it = items[i]
     const blob = it.blob || (await getImage(it.id))
     if (blob) setCrop({ file: blob, index: i })
+    else alert('Bu fotoğraf bu cihaza indirilemedi; kırpmak için fotoğrafı çeken cihazdan dene.')
   }
 
   return (

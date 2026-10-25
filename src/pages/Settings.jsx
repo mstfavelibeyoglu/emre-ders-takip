@@ -3,7 +3,7 @@ import { Card } from '../components/ui'
 import { TYT_TESTS, emptyData } from '../lib/defaults'
 const excel = () => import('../lib/excel')
 import { exportZip, readBackup, restoreFiles } from '../lib/backup'
-import { clearImages } from '../lib/images'
+import { clearImages, pendingUploads, flushUploads } from '../lib/images'
 import { firebaseEnabled, logout } from '../lib/firebase'
 import AccessPanel from '../components/AccessPanel'
 
@@ -103,6 +103,8 @@ export default function Settings({ data, update, replace, user, role }) {
 
       {role === 'owner' && <AccessPanel user={user} />}
 
+      {(role === 'owner' || role === 'editor') && <SyncCard />}
+
       <Card title="Genel">
         <div className="form-row">
           <label className="grow">Öğrenci adı<input value={settings.studentName} onChange={e => setS(s => { s.studentName = e.target.value })} /></label>
@@ -177,5 +179,28 @@ export default function Settings({ data, update, replace, user, role }) {
         <button className="btn danger" onClick={reset}>Tüm verileri sıfırla</button>
       </Card>}
     </div>
+  )
+}
+
+function SyncCard() {
+  const [left, setLeft] = useState(() => pendingUploads().length)
+  const [msg, setMsg] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true)
+    const r = await flushUploads()
+    setBusy(false)
+    setLeft(r.left)
+    setMsg(r.error ? { ok: false, text: `${r.done} fotoğraf yüklendi, ${r.left} bekliyor: ${r.error}` } : { ok: true, text: r.done ? `${r.done} fotoğraf buluta yüklendi ✓` : 'Bekleyen fotoğraf yok ✓' })
+  }
+  return (
+    <Card title="Fotoğraf eşitleme">
+      <div className="row gap wrap" style={{ justifyContent: 'space-between' }}>
+        <span>{left ? <b>Bu cihazda {left} fotoğraf buluta yüklenmeyi bekliyor.</b> : 'Bu cihazdaki tüm fotoğraflar bulutta.'}</span>
+        <button className="btn small" disabled={busy} onClick={run}>{busy ? 'Yükleniyor…' : 'Şimdi yükle'}</button>
+      </div>
+      {msg && <div className={msg.ok ? 'ok' : 'error'} style={{ marginTop: 8 }}>{msg.text}</div>}
+      <p className="note">Fotoğraf çekilen cihazda internet yoksa ya da yükleme başarısız olursa fotoğraf orada bekler; bu cihaz açıldıkça kendiliğinden yeniden dener.</p>
+    </Card>
   )
 }

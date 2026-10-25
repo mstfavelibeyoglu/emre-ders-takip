@@ -29,6 +29,13 @@ const idbPut = (id, blob) => tx('readwrite', s => s.put(blob, id))
 const idbGet = id => tx('readonly', s => s.get(id))
 const idbDelete = ids => tx('readwrite', s => ids.forEach(id => s.delete(id)))
 
+const ERR = {
+  'storage/unauthorized': 'yetki yok (Storage kuralları)',
+  'storage/object-not-found': 'buluta hiç yüklenmemiş',
+  'storage/retry-limit-exceeded': 'bağlantı yok',
+  'storage/unauthenticated': 'giriş gerekli'
+}
+
 // --- Bulut (Firebase Storage): her cihaz kendi önbelleğini (IndexedDB) tutar, eksik olanı buluttan indirir ---
 let cloud = null // { storage, path(id) }
 const PENDING = 'emre-bekleyen-yuklemeler'
@@ -36,30 +43,35 @@ const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) ||
 const setPending = ids => { try { localStorage.setItem(PENDING, JSON.stringify([...new Set(ids)])) } catch {} }
 
 export async function enableCloudFiles(app, studentId, canWrite) {
-  const { getStorage, ref, uploadBytes, getBlob, deleteObject } = await import('firebase/storage')
+  const { getStorage, ref, uploadBytes, getBlob, getDownloadURL, deleteObject } = await import('firebase/storage')
   const storage = getStorage(app)
   const r = id => ref(storage, `students/${studentId}/files/${id}`)
   cloud = {
     canWrite,
     upload: async (id, blob) => uploadBytes(r(id), blob, { contentType: blob.type || 'application/octet-stream' }),
     download: id => getBlob(r(id)),
+    url: id => getDownloadURL(r(id)),
     remove: id => deleteObject(r(id)).catch(e => { if (e.code !== 'storage/object-not-found') throw e })
   }
   if (canWrite) flushUploads()
 }
 
+// Sonuç: { done, left, error } — Ayarlar'daki eşitleme kutusu bunu gösterir.
 export async function flushUploads() {
-  if (!cloud?.canWrite) return
+  if (!cloud?.canWrite) return { done: 0, left: pending().length, error: cloud ? 'yetki yok' : 'bulut kapalı' }
+  let done = 0
   for (const id of pending()) {
     try {
       const blob = await idbGet(id)
       if (blob) await cloud.upload(id, blob)
       setPending(pending().filter(x => x !== id))
+      done++
     } catch (e) {
       console.warn('Yükleme bekletiliyor', id, e.code || e)
-      return
+      return { done, left: pending().length, error: ERR[e.code] || e.code || 'yüklenemedi' }
     }
   }
+  return { done, left: 0, error: null }
 }
 if (typeof window !== 'undefined') window.addEventListener('online', () => flushUploads())
 
@@ -82,8 +94,30 @@ export async function getImage(id) {
     await idbPut(id, blob)
     return blob
   } catch (e) {
+    // Dosya olarak indirme depoda CORS ayarı ister; yoksa burada düşer (görüntüleme yine çalışır, bkz. imageSrc).
     console.warn('Görsel indirilemedi', id, e.code || e)
     return undefined
+  }
+}
+
+
+// Gösterim için kaynak: önce bu cihazdaki kopya, yoksa buluttan dosya, o da olmazsa doğrudan indirme adresi
+// (<img> için CORS gerekmez). Hata olursa okunur bir sebep döner.
+async function imageSrc(id) {
+  const local = await idbGet(id)
+  if (local) return { url: URL.createObjectURL(local) }
+  if (!cloud) return { error: 'bu cihazda yok' }
+  try {
+    const blob = await cloud.download(id)
+    await idbPut(id, blob)
+    return { url: URL.createObjectURL(blob) }
+  } catch (e) {
+    if (e.code === 'storage/object-not-found' || e.code === 'storage/unauthorized') return { error: ERR[e.code], code: e.code }
+  }
+  try {
+    return { url: await cloud.url(id) }
+  } catch (e) {
+    return { error: ERR[e.code] || e.code || 'indirilemedi', code: e.code }
   }
 }
 
@@ -159,17 +193,21 @@ export function trimWhite(src, pad = 14) {
 
 const cache = new Map()
 export function useImageUrl(id) {
-  const [url, setUrl] = useState(() => cache.get(id) || null)
+  const [state, setState] = useState(() => ({ url: cache.get(id) || null, error: null }))
+  const [tick, setTick] = useState(0)
   useEffect(() => {
-    if (!id || cache.has(id)) return setUrl(cache.get(id) || null)
+    if (!id) return setState({ url: null, error: null })
+    if (cache.has(id)) return setState({ url: cache.get(id), error: null })
     let alive = true
-    getImage(id).then(blob => {
-      if (!blob || !alive) return
-      const u = URL.createObjectURL(blob)
-      cache.set(id, u)
-      setUrl(u)
+    setState({ url: null, error: null })
+    imageSrc(id).then(r => {
+      if (!alive) return
+      if (r.url) cache.set(id, r.url)
+      setState({ url: r.url || null, error: r.error || null })
     })
     return () => { alive = false }
-  }, [id])
-  return url
+  }, [id, tick])
+  return { ...state, retry: () => setTick(t => t + 1) }
 }
+
+export const pendingUploads = () => pending()
