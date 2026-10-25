@@ -43,7 +43,7 @@ const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) ||
 const setPending = ids => { try { localStorage.setItem(PENDING, JSON.stringify([...new Set(ids)])) } catch {} }
 
 export async function enableCloudFiles(app, studentId, canWrite) {
-  const { getStorage, ref, uploadBytes, getBlob, getDownloadURL, deleteObject } = await import('firebase/storage')
+  const { getStorage, ref, uploadBytes, getBlob, getDownloadURL, deleteObject, listAll } = await import('firebase/storage')
   const storage = getStorage(app)
   const r = id => ref(storage, `students/${studentId}/files/${id}`)
   cloud = {
@@ -51,6 +51,7 @@ export async function enableCloudFiles(app, studentId, canWrite) {
     upload: async (id, blob) => uploadBytes(r(id), blob, { contentType: blob.type || 'application/octet-stream' }),
     download: id => getBlob(r(id)),
     url: id => getDownloadURL(r(id)),
+    list: async () => (await listAll(ref(storage, `students/${studentId}/files`))).items.map(i => i.name),
     remove: id => deleteObject(r(id)).catch(e => { if (e.code !== 'storage/object-not-found') throw e })
   }
   if (canWrite) flushUploads()
@@ -211,3 +212,30 @@ export function useImageUrl(id) {
 }
 
 export const pendingUploads = () => pending()
+
+// Hata defterindeki fotoğrafları bulutla karşılaştırır; buluta hiç gitmemiş olanlar bu cihazda varsa yükler.
+export async function checkAndRepair(ids) {
+  const out = { total: ids.length, inCloud: 0, uploaded: 0, localOnly: 0, missing: 0, error: null }
+  if (!cloud) return { ...out, error: 'bulut kapalı' }
+  let names
+  try {
+    names = new Set(await cloud.list())
+  } catch (e) {
+    return { ...out, error: 'bulut listesi okunamadı: ' + (ERR[e.code] || e.code || e.message) }
+  }
+  for (const id of ids) {
+    if (names.has(id)) { out.inCloud++; continue }
+    const blob = await idbGet(id)
+    if (!blob) { out.missing++; continue }
+    if (!cloud.canWrite) { out.localOnly++; continue }
+    try {
+      await cloud.upload(id, blob)
+      setPending(pending().filter(x => x !== id))
+      out.uploaded++
+    } catch (e) {
+      out.localOnly++
+      out.error = 'yükleme hatası: ' + (ERR[e.code] || e.code || e.message)
+    }
+  }
+  return out
+}

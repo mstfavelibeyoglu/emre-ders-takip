@@ -3,7 +3,7 @@ import { Card } from '../components/ui'
 import { TYT_TESTS, emptyData } from '../lib/defaults'
 const excel = () => import('../lib/excel')
 import { exportZip, readBackup, restoreFiles } from '../lib/backup'
-import { clearImages, pendingUploads, flushUploads } from '../lib/images'
+import { clearImages, pendingUploads, flushUploads, checkAndRepair } from '../lib/images'
 import { firebaseEnabled, logout } from '../lib/firebase'
 import AccessPanel from '../components/AccessPanel'
 
@@ -103,7 +103,7 @@ export default function Settings({ data, update, replace, user, role }) {
 
       {role === 'owner' && <AccessPanel user={user} />}
 
-      {(role === 'owner' || role === 'editor') && <SyncCard />}
+      {role !== 'local' && <SyncCard data={data} role={role} />}
 
       <Card title="Genel">
         <div className="form-row">
@@ -182,25 +182,38 @@ export default function Settings({ data, update, replace, user, role }) {
   )
 }
 
-function SyncCard() {
+function SyncCard({ data, role }) {
+  const canWrite = role === 'owner' || role === 'editor'
   const [left, setLeft] = useState(() => pendingUploads().length)
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
-  const run = async () => {
+  const ids = [...new Set(data.mistakes.flatMap(m => m.imageIds || []))]
+
+  const check = async () => {
     setBusy(true)
-    const r = await flushUploads()
+    setMsg(null)
+    if (canWrite) await flushUploads()
+    const r = await checkAndRepair(ids)
+    setLeft(pendingUploads().length)
     setBusy(false)
-    setLeft(r.left)
-    setMsg(r.error ? { ok: false, text: `${r.done} fotoğraf yüklendi, ${r.left} bekliyor: ${r.error}` } : { ok: true, text: r.done ? `${r.done} fotoğraf buluta yüklendi ✓` : 'Bekleyen fotoğraf yok ✓' })
+    const lines = [
+      `Hata defterinde ${r.total} fotoğraf var; ${r.inCloud + r.uploaded} tanesi bulutta.`,
+      r.uploaded ? `${r.uploaded} fotoğraf bu cihazdan buluta yüklendi ✓` : '',
+      r.localOnly ? `${r.localOnly} fotoğraf sadece bu cihazda duruyor${canWrite ? '' : ' (görüntüleyici yükleyemez)'}.` : '',
+      r.missing ? `${r.missing} fotoğraf ne bulutta ne bu cihazda: fotoğrafı çeken cihazda bu butona basılmalı.` : '',
+      r.error || ''
+    ].filter(Boolean)
+    setMsg({ ok: !r.error && !r.missing && !r.localOnly, text: lines.join('\n') })
   }
+
   return (
     <Card title="Fotoğraf eşitleme">
       <div className="row gap wrap" style={{ justifyContent: 'space-between' }}>
-        <span>{left ? <b>Bu cihazda {left} fotoğraf buluta yüklenmeyi bekliyor.</b> : 'Bu cihazdaki tüm fotoğraflar bulutta.'}</span>
-        <button className="btn small" disabled={busy} onClick={run}>{busy ? 'Yükleniyor…' : 'Şimdi yükle'}</button>
+        <span>{left ? <b>Bu cihazda {left} fotoğraf buluta yüklenmeyi bekliyor.</b> : 'Fotoğrafların bulutta olup olmadığını kontrol et.'}</span>
+        <button className="btn small primary" disabled={busy} onClick={check}>{busy ? 'Kontrol ediliyor…' : 'Kontrol et ve onar'}</button>
       </div>
-      {msg && <div className={msg.ok ? 'ok' : 'error'} style={{ marginTop: 8 }}>{msg.text}</div>}
-      <p className="note">Fotoğraf çekilen cihazda internet yoksa ya da yükleme başarısız olursa fotoğraf orada bekler; bu cihaz açıldıkça kendiliğinden yeniden dener.</p>
+      {msg && <div className={msg.ok ? 'ok' : 'warnbox'} style={{ marginTop: 8, whiteSpace: 'pre-line' }}>{msg.text}</div>}
+      <p className="note">Bir fotoğraf başka cihazlarda görünmüyorsa, fotoğrafı çeken cihazda bu butona basın. Rolün: {{ owner: 'Yönetici', editor: 'Öğrenci / düzenleyici', viewer: 'Görüntüleyici' }[role]} · Sürüm: {__BUILD__}</p>
     </Card>
   )
 }
