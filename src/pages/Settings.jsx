@@ -5,7 +5,6 @@ const excel = () => import('../lib/excel')
 import { exportZip, readBackup, restoreFiles } from '../lib/backup'
 import { clearImages } from '../lib/images'
 import { firebaseEnabled, logout } from '../lib/firebase'
-import { GEMINI_MODEL } from '../config'
 import AccessPanel from '../components/AccessPanel'
 
 export default function Settings({ data, update, replace, user, role }) {
@@ -88,17 +87,17 @@ export default function Settings({ data, update, replace, user, role }) {
         <input ref={jsonRef} type="file" accept=".zip,.json,application/zip,application/json" hidden onChange={onJSON} />
       </Card>
 
-      <Card title="Hesap ve yapay zekâ">
+      <Card title="Hesap">
         {firebaseEnabled ? (
           <div className="row gap wrap" style={{ justifyContent: 'space-between' }}>
             <div>
               <div><b>{user?.displayName}</b> <span className="muted">{user?.email}</span></div>
-              <small className="muted">Rol: {{ owner: 'Yönetici', editor: 'Öğrenci / düzenleyici', viewer: 'Görüntüleyici' }[role] || role} · Veriler ortak hesapta (Firebase) · Soru okuma: {GEMINI_MODEL}</small>
+              <small className="muted">Rol: {{ owner: 'Yönetici', editor: 'Öğrenci / düzenleyici', viewer: 'Görüntüleyici' }[role] || role} · Veriler ortak hesapta (Firebase)</small>
             </div>
             <button className="btn" onClick={logout}>Çıkış yap</button>
           </div>
         ) : (
-          <p className="note" style={{ marginTop: 0 }}>Firebase ayarlanmadığı için giriş ve yapay zekâ kapalı (src/config.js). Uygulamanın geri kalanı normal çalışır.</p>
+          <p className="note" style={{ marginTop: 0 }}>Firebase ayarlanmadığı için giriş ve ortak veri kapalı (src/config.js). Uygulamanın geri kalanı normal çalışır.</p>
         )}
       </Card>
 

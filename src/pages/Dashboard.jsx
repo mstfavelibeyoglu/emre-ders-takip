@@ -47,7 +47,6 @@ export default function Dashboard({ data, go, openExam }) {
         actions={
           <span className="row gap no-print">
             <button className="band-btn" onClick={() => openExam(a.last.id)}>Son deneme karnesi</button>
-            <button className="band-btn" onClick={() => window.print()}>Yazdır / PDF</button>
           </span>
         }
       />

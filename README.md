@@ -39,4 +39,4 @@ Komut siteyi derler ve `gh-pages` dalına gönderir; GitHub Pages bu daldan yay�
 - **App Check** (reCAPTCHA Enterprise)
 - **Google ile giriş** ve izinli e-posta listesi
 
-Gemini'nin asıl API anahtarı Firebase'in sunucusundadır; repoda ya da sitede yer almaz.
+

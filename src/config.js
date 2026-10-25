@@ -17,9 +17,6 @@ export const OWNER_EMAIL = 'mstfavelibeyoglu@gmail.com'
 // Firestore'daki ortak öğrenci kaydı.
 export const STUDENT_ID = 'emre'
 
-// Firebase konsolu → App Check → web uygulaması → reCAPTCHA Enterprise site anahtarı.
+// Firebase konsolu → App Check → web uygulaması → reCAPTCHA Enterprise site anahtarı (kötüye kullanıma karşı).
 export const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LdB_f4tAAAAANXM8wy73X0Qe6coLmAkGe-LzYjY'
 
-// İşi gören en ucuz model (Ekim 2026): 0,25 $ / 1,50 $ (1M token, girdi / çıktı).
-// Görsel okuma yetersiz kalırsa bir üst seçenek: 'gemini-3.5-flash-lite'.
-export const GEMINI_MODEL = 'gemini-3.1-flash-lite'

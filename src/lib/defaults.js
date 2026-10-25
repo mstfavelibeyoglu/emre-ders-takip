@@ -2,6 +2,10 @@
 
 export const TYT_TESTS = ['Türkçe', 'Sosyal', 'Matematik', 'Fen']
 
+// Dersler her yerde (form, tablolar, karne) bu sırayla gösterilir: TYT sırası.
+// DEFAULT_SETTINGS'teki sıra Excel şablonunun sütun sırasıdır; içe aktarma ona dayanır, değiştirme.
+export const SUBJECT_ORDER = ['edb', 'tar', 'cog', 'din', 'mat', 'fiz', 'kim', 'bio']
+
 export const DEFAULT_SETTINGS = {
   studentName: 'Emre',
   wrongPenalty: 4,

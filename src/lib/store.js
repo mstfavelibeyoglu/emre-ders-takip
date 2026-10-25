@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { emptyData, DEFAULT_SETTINGS } from './defaults'
+import { emptyData, DEFAULT_SETTINGS, SUBJECT_ORDER } from './defaults'
 
 const KEY = 'emre-ders-takip-v1'
 
@@ -20,6 +20,8 @@ export function normalize(d) {
   const settings = { ...base.settings, ...(d.settings || {}) }
   settings.tyt = { ...DEFAULT_SETTINGS.tyt, ...(settings.tyt || {}), tests: { ...DEFAULT_SETTINGS.tyt.tests, ...(settings.tyt?.tests || {}) } }
   if (!Array.isArray(settings.subjects) || !settings.subjects.length) settings.subjects = base.settings.subjects
+  const rank = id => (SUBJECT_ORDER.includes(id) ? SUBJECT_ORDER.indexOf(id) : SUBJECT_ORDER.length)
+  settings.subjects = [...settings.subjects].sort((a, b) => rank(a.id) - rank(b.id))
   if (!Array.isArray(settings.errorReasons) || !settings.errorReasons.length) settings.errorReasons = base.settings.errorReasons
   return {
     version: 1,

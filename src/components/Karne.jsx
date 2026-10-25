@@ -1,5 +1,7 @@
 import { Donut, ScoreRing, DYB_COLORS } from './Pie'
+import { useRef, useState } from 'react'
 import { fmt, fmtDate, isNum } from '../lib/calc'
+import { downloadKarnePdf, safeName } from '../lib/pdf'
 
 const RING_COLORS = ['#38bdf8', '#d6a77a', '#fbbf24', '#f472b6', '#4ade80']
 const p2 = v => (isNum(v) ? (v * 100).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—')
@@ -65,6 +67,13 @@ function RankHistory({ ranks }) {
 }
 
 export default function Karne({ rep, studentName, actions }) {
+  const ref = useRef(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const pdfName = rep.kind === 'overall' ? `Genel_Analiz_${studentName}` : `Karne_${safeName(rep.title)}_${rep.date || ''}`
+  const downloadPdf = async () => {
+    setPdfBusy(true)
+    try { await downloadKarnePdf(ref.current, safeName(pdfName)) } catch (e) { console.error(e); alert('PDF oluşturulamadı: ' + (e?.message || e)) } finally { setPdfBusy(false) }
+  }
   const overall = rep.kind === 'overall'
   const tot = rep.total
 
@@ -78,10 +87,13 @@ export default function Karne({ rep, studentName, actions }) {
     : [[rep.scoreIsEstimate ? 'Tahmini TYT' : 'Puan', rep.score]]
 
   return (
-    <article className="karne">
+    <article className="karne" ref={ref}>
       <header className="karne-band">
         <span>{overall ? `GENEL ANALİZ KARNESİ · ${rep.count} DENEME` : 'DENEME KARNESİ'}</span>
-        {actions}
+        <span className="row gap no-print">
+          {actions}
+          <button className="band-btn" disabled={pdfBusy} onClick={downloadPdf}>{pdfBusy ? 'Hazırlanıyor…' : '⬇ PDF indir'}</button>
+        </span>
       </header>
       <div className="karne-id">
         <div>

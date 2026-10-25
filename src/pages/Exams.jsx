@@ -54,7 +54,7 @@ export default function Exams({ data, update, onEdit, onOpen, onMistakes, go }) 
             </div>
             <div className="row gap wrap">
               <button className="btn small primary" onClick={() => onOpen(e.id)}>📄 Karne</button>
-              <button className="btn small" onClick={() => onMistakes(e)}>✏️ Yanlışları seç {mCount ? `(${mCount})` : ''}</button>
+              <button className="btn small" onClick={() => onMistakes(e)}>📷 Yanlış soru ekle {mCount ? `(${mCount})` : ''}</button>
               <button className="btn small ghost" onClick={() => onEdit(e)}>Düzenle</button>
               <button className="btn small ghost danger" onClick={() => remove(e)}>Sil</button>
             </div>

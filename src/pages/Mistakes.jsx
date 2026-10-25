@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { repeatCount, fmtDate, today, uid } from '../lib/calc'
 import { TOPIC_SUGGESTIONS } from '../lib/defaults'
-import { putImage, deleteImages, getImage, rotateBlob } from '../lib/images'
+import { putImage, deleteImages, getImage, rotateBlob, compress } from '../lib/images'
 import { boxOf, dueOf, isMastered, MASTERED } from '../lib/srs'
 import { Card, Empty, Badge, Modal } from '../components/ui'
 import Cropper, { hasLastPdf, lastPdfName } from '../components/Cropper'
@@ -9,13 +9,23 @@ import QImage from '../components/QImage'
 
 export const CHOICES = ['A', 'B', 'C', 'D', 'E']
 
+// Art arda yanlış girerken en son seçilen ders hatırlanır.
+const LAST_SUBJECT = 'emre-son-ders'
+const lastSubject = settings => {
+  try {
+    const id = localStorage.getItem(LAST_SUBJECT)
+    if (settings.subjects.some(s => s.id === id)) return id
+  } catch {}
+  return settings.subjects[0].id
+}
+
 export function MistakeForm({ data, update, exam, editing, initial, onClose, onSaved }) {
   const { settings } = data
   const blank = () => ({
     date: exam?.date || today(),
     examId: exam?.id || '',
     examName: exam?.name || '',
-    subjectId: editing?.subjectId || settings.subjects[0].id,
+    subjectId: editing?.subjectId || lastSubject(settings),
     topic: '', qNo: '', kind: 'Yanlış', reason: '', reviewed: false, note: '', answer: '', given: '',
     imageIds: [],
     ...initial
@@ -59,6 +69,7 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
       return d
     })
     onSaved?.(rec)
+    try { localStorage.setItem(LAST_SUBJECT, rec.subjectId) } catch {}
     if (again) {
       setAdded(n => n + 1)
       setItems([])
@@ -79,11 +90,23 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
     }
   }
 
-  const pick = (e, reuse) => {
+  // Fotoğraf doğrudan eklenir (kırpma isteğe bağlı, ✂ ile). PDF seçilirse sayfa ve alan seçmek için kırpma açılır.
+  const pick = async (e, reuse) => {
     if (reuse) return setCrop({ reusePdf: true })
-    const file = e.target.files[0]
+    const files = [...e.target.files]
     e.target.value = ''
-    if (file) setCrop({ file })
+    for (const file of files) {
+      if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) setCrop({ file })
+      else {
+        const blob = await compress(file, 2000, 0.85)
+        setItems(xs => [...xs, { blob }])
+      }
+    }
+  }
+  const cropItem = async i => {
+    const it = items[i]
+    const blob = it.blob || (await getImage(it.id))
+    if (blob) setCrop({ file: blob, index: i })
   }
 
   return (
@@ -93,23 +116,24 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
           {added > 0 && <div className="ok">✓ {added} kayıt eklendi. Sıradakini gir.</div>}
 
           <div>
-            <div className="label">Soru görseli</div>
+            <div className="label">Soru görseli {items.length > 0 && <span className="muted">· ters çıktıysa ⟳, fazlalık varsa ✂</span>}</div>
             <div className="thumbs">
               {items.map((it, i) => (
                 <div key={it.id || i} className="thumb">
                   {it.id ? <QImage id={it.id} /> : <QImage blob={it.blob} />}
                   <button type="button" className="thumb-x" onClick={() => setItems(xs => xs.filter((_, j) => j !== i))} aria-label="Görseli kaldır">✕</button>
                   <button type="button" className="thumb-rot" disabled={rotating === i} onClick={() => rotate(i)} aria-label="Görseli döndür" title="90° döndür">⟳</button>
+                  <button type="button" className="thumb-crop" onClick={() => cropItem(i)} aria-label="Görseli kırp" title="Kırp">✂</button>
                 </div>
               ))}
             </div>
             <div className="row gap wrap">
-              <button type="button" className="btn small" onClick={() => camRef.current.click()}>📷 Fotoğraf çek</button>
-              <button type="button" className="btn small" onClick={() => fileRef.current.click()}>🖼️ Görsel / PDF seç</button>
+              <button type="button" className={items.length ? 'btn small' : 'btn primary big-btn photo-btn'} onClick={() => camRef.current.click()}>📷 {items.length ? 'Bir fotoğraf daha' : 'Sorunun fotoğrafını çek'}</button>
+              <button type="button" className="btn small" onClick={() => fileRef.current.click()}>🖼️ Galeriden seç</button>
               {hasLastPdf() && <button type="button" className="btn small" onClick={e => pick(e, true)} title={lastPdfName()}>📄 Son PDF'ten</button>}
             </div>
             <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={pick} />
-            <input ref={fileRef} type="file" accept="image/*,application/pdf" hidden onChange={pick} />
+            <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple hidden onChange={pick} />
           </div>
 
           <div className="seg">
@@ -171,7 +195,7 @@ export function MistakeForm({ data, update, exam, editing, initial, onClose, onS
           </div>
         </form>
       </Modal>
-      {crop && <Cropper source={crop} onClose={() => setCrop(null)} onDone={b => { setItems(xs => [...xs, { blob: b }]); setCrop(null) }} />}
+      {crop && <Cropper source={crop} onClose={() => setCrop(null)} onDone={b => { setItems(xs => (crop.index != null ? xs.map((x, j) => (j === crop.index ? { blob: b } : x)) : [...xs, { blob: b }])); setCrop(null) }} />}
     </>
   )
 }
